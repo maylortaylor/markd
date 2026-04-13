@@ -40,7 +40,7 @@ sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev 
 git clone https://github.com/maylortaylor/markd.git
 cd markd
 npm install
-cargo tauri dev
+npm run tauri dev
 ```
 
 ## Project Structure
@@ -48,12 +48,18 @@ cargo tauri dev
 ```
 markd/
 ├── src/                    # React/TypeScript frontend
-│   ├── components/         # UI components
+│   ├── components/
+│   │   ├── ActivityBar/
+│   │   ├── MainPanel/
+│   │   ├── Sidebar/
+│   │   └── StatusBar/
 │   ├── lib/                # Tauri command wrappers, utilities
-│   └── types/              # Shared TypeScript types
+│   ├── types/              # Shared TypeScript types
+│   └── test/               # Vitest setup
 ├── src-tauri/              # Rust backend
-│   ├── src/commands/       # Tauri command handlers
-│   └── src/types.rs        # Shared Rust types
+│   └── src/
+│       ├── commands/       # Tauri command handlers
+│       └── types.rs        # Shared Rust types
 └── .github/workflows/      # CI pipeline
 ```
 
@@ -63,11 +69,17 @@ markd/
 # Frontend: type check + lint + vitest
 npm run ci:local
 
-# Rust: unit tests
-cd src-tauri && cargo test
+# Frontend: test coverage report
+npm run test:coverage
+
+# Rust: format check
+cd src-tauri && cargo fmt --check
 
 # Rust: lint
 cd src-tauri && cargo clippy -- -D warnings
+
+# Rust: unit tests
+cd src-tauri && cargo test
 ```
 
 ## License

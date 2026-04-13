@@ -20,7 +20,7 @@ directories and the app config path.
 If you discover a security vulnerability in Markd, please report it responsibly:
 
 1. **Do not open a public GitHub issue** for security vulnerabilities
-2. Email: [TO BE ADDED -- maintainer email]
+2. Open a [GitHub Security Advisory](https://github.com/maylortaylor/markd/security/advisories/new) (private, only visible to maintainers)
 3. Include: description of the vulnerability, steps to reproduce, and potential impact
 4. You will receive a response within 72 hours
 
