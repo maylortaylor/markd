@@ -1,1 +1,30 @@
-node_modules/\ntarget/\ndist/\n.env\n.env.local\n*.log\n.DS_Store\nthumbbs.db
+# Dependencies
+node_modules/
+
+# Build outputs
+target/
+dist/
+
+# Environment files
+.env
+.env.local
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+thumbs.db
+
+# Tauri generated files
+src-tauri/gen/
+
+# Test coverage
+coverage/
+
+# TypeScript build info and composite emit artifacts
+*.tsbuildinfo
+vite.config.d.ts
+vite.config.js
+vitest.config.d.ts
+vitest.config.js

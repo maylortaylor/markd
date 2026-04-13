@@ -1,0 +1,33 @@
+[package]
+name = "markd"
+version = "0.0.1"
+description = "A privacy-first, cross-platform markdown viewer"
+authors = ["Matt Taylor"]
+license = "MIT"
+repository = "https://github.com/maylortaylor/markd"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "markd_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+pulldown-cmark = { version = "0.12", features = ["simd"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+walkdir = "2"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true
