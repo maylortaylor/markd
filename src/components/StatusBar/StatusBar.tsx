@@ -1,5 +1,3 @@
-import styles from './StatusBar.module.css';
-
 interface StatusBarProps {
   folderPath: string | null;
   fileCount: number;
@@ -7,12 +5,14 @@ interface StatusBarProps {
 
 export function StatusBar({ folderPath, fileCount }: StatusBarProps) {
   return (
-    <div className={styles.statusBar} role="status" aria-live="polite">
-      <span className={styles.folderPath}>
-        {folderPath ?? 'No folder open'}
-      </span>
+    <div
+      className="[grid-area:statusbar] bg-ocean-500 flex items-center px-3 gap-4 text-xs text-white"
+      role="status"
+      aria-live="polite"
+    >
+      <span className="truncate">{folderPath ?? 'No folder open'}</span>
       {folderPath !== null && (
-        <span className={styles.fileCount}>
+        <span className="flex-shrink-0">
           {fileCount} {fileCount === 1 ? 'file' : 'files'}
         </span>
       )}

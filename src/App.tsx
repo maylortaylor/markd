@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 
 import { ActivityBar } from './components/ActivityBar/ActivityBar';
@@ -6,9 +6,7 @@ import { MainPanel } from './components/MainPanel/MainPanel';
 import { Sidebar } from './components/Sidebar/Sidebar';
 import { StatusBar } from './components/StatusBar/StatusBar';
 import { listFiles, readFile, parseMarkdown } from './lib/tauri-commands';
-import type { FileEntry, SidebarView } from './types';
-
-import styles from './App.module.css';
+import type { FileEntry, HeadingEntry, SidebarView } from './types';
 
 function countFiles(entries: FileEntry[]): number {
   return entries.reduce(
@@ -24,6 +22,18 @@ function App() {
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [markdownHtml, setMarkdownHtml] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const fileCount = useMemo(() => countFiles(files), [files]);
+
+  const outlineEntries = useMemo<HeadingEntry[]>(() => {
+    if (!markdownHtml) return [];
+    const doc = new DOMParser().parseFromString(markdownHtml, 'text/html');
+    return Array.from(doc.querySelectorAll('h1,h2,h3,h4,h5,h6')).map((el, i) => ({
+      id: `heading-${i}`,
+      text: el.textContent ?? '',
+      level: parseInt(el.tagName[1], 10),
+    }));
+  }, [markdownHtml]);
 
   async function openFolder() {
     try {
@@ -58,7 +68,12 @@ function App() {
   }
 
   return (
-    <div className={styles.layout}>
+    <div
+      className="h-screen w-screen grid overflow-hidden"
+      style={{
+        gridTemplate: '"activitybar sidebar main" 1fr "activitybar sidebar statusbar" 24px / 48px 260px 1fr',
+      }}
+    >
       <ActivityBar activeView={sidebarView} onViewChange={setSidebarView} />
       <Sidebar
         activeView={sidebarView}
@@ -68,14 +83,16 @@ function App() {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onOpenFolder={() => { void openFolder(); }}
+        outlineEntries={outlineEntries}
+        scrollRef={scrollRef}
       />
       <MainPanel
         content={markdownHtml}
-        fileName={selectedFile?.name ?? null}
+        scrollRef={scrollRef}
       />
       <StatusBar
         folderPath={folderPath}
-        fileCount={countFiles(files)}
+        fileCount={fileCount}
       />
     </div>
   );

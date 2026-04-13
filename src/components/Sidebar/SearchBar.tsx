@@ -1,5 +1,3 @@
-import styles from './SearchBar.module.css';
-
 interface SearchBarProps {
   value: string;
   onChange: (value: string) => void;
@@ -7,13 +5,15 @@ interface SearchBarProps {
 
 export function SearchBar({ value, onChange }: SearchBarProps) {
   return (
-    <input
-      type="text"
-      className={styles.searchInput}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder="Search files..."
-      aria-label="Search files"
-    />
+    <div className="px-3 py-2">
+      <input
+        type="text"
+        className="w-full bg-navy-700 border border-navy-600 rounded px-2 py-1 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-ocean-400 transition-colors"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Search files..."
+        aria-label="Search files"
+      />
+    </div>
   );
 }

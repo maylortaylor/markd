@@ -5,9 +5,10 @@ export interface FileEntry {
   children: FileEntry[];
 }
 
-export interface FolderStats {
-  file_count: number;
-  folder_path: string;
+export interface HeadingEntry {
+  id: string;
+  text: string;
+  level: number;
 }
 
-export type SidebarView = 'files' | 'search';
+export type SidebarView = 'files' | 'search' | 'outline';

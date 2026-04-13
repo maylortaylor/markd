@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+
+import { AnimatePresence, motion } from 'framer-motion';
+import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen } from 'lucide-react';
 
 import type { FileEntry } from '../../types';
-
-import styles from './FileTree.module.css';
 
 interface FileTreeProps {
   entries: FileEntry[];
@@ -30,48 +31,67 @@ function FileTreeNode({
 }: FileTreeNodeProps) {
   const isExpanded = expandedPaths.has(entry.path);
   const isSelected = entry.path === selectedPath;
-  const indent = depth * 16;
+  const paddingLeft = 8 + depth * 16;
 
   if (entry.is_dir) {
     return (
       <>
         <button
-          className={styles.dirRow}
-          style={{ paddingLeft: `${8 + indent}px` }}
+          className="w-full flex items-center gap-1.5 py-0.5 cursor-pointer hover:bg-navy-700 rounded text-sm text-text-secondary transition-colors"
+          style={{ paddingLeft: `${paddingLeft}px` }}
           onClick={() => onToggle(entry.path)}
           aria-expanded={isExpanded}
           aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${entry.name}`}
         >
-          <span className={styles.chevron} aria-hidden="true">{isExpanded ? '▾' : '▸'}</span>
-          <span className={styles.icon} aria-hidden="true">📁</span>
-          <span className={styles.name}>{entry.name}</span>
+          <span className="text-text-muted flex-shrink-0" aria-hidden="true">
+            {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          </span>
+          <span className="text-ocean-400 flex-shrink-0" aria-hidden="true">
+            {isExpanded ? <FolderOpen size={15} /> : <Folder size={15} />}
+          </span>
+          <span className="truncate">{entry.name}</span>
         </button>
-        {isExpanded &&
-          entry.children.map((child) => (
-            <FileTreeNode
-              key={child.path}
-              entry={child}
-              depth={depth + 1}
-              selectedPath={selectedPath}
-              onFileSelect={onFileSelect}
-              expandedPaths={expandedPaths}
-              onToggle={onToggle}
-            />
-          ))}
+        <AnimatePresence initial={false}>
+          {isExpanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="ml-3 pl-2 border-l border-navy-700">
+                {entry.children.map((child) => (
+                  <FileTreeNode
+                    key={child.path}
+                    entry={child}
+                    depth={depth + 1}
+                    selectedPath={selectedPath}
+                    onFileSelect={onFileSelect}
+                    expandedPaths={expandedPaths}
+                    onToggle={onToggle}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </>
     );
   }
 
   return (
     <button
-      className={`${styles.fileRow} ${isSelected ? styles.selected : ''}`}
-      style={{ paddingLeft: `${8 + indent}px` }}
+      className={`w-full flex items-center gap-1.5 py-0.5 rounded text-sm transition-colors ${isSelected ? 'bg-navy-700 text-text-primary' : 'text-text-secondary hover:bg-navy-700 hover:text-text-primary'}`}
+      style={{ paddingLeft: `${paddingLeft}px` }}
       onClick={() => onFileSelect(entry)}
       aria-label={entry.name}
-      aria-current={isSelected ? 'true' : undefined}
+      aria-current={isSelected ? true : undefined}
     >
-      <span className={styles.icon} aria-hidden="true">📄</span>
-      <span className={styles.name}>{entry.name}</span>
+      <span className="text-text-muted flex-shrink-0" aria-hidden="true">
+        <FileText size={14} />
+      </span>
+      <span className="truncate">{entry.name}</span>
     </button>
   );
 }
@@ -114,24 +134,34 @@ export function FileTree({
     });
   };
 
-  if (searchQuery.trim()) {
-    const results = flattenSearch(entries, searchQuery);
+  const searchResults = useMemo(
+    () => (searchQuery.trim() ? flattenSearch(entries, searchQuery) : null),
+    [entries, searchQuery],
+  );
+
+  if (searchResults !== null) {
+    const results = searchResults;
     if (results.length === 0) {
-      return <p className={styles.emptySearch}>No files match &ldquo;{searchQuery}&rdquo;</p>;
+      return (
+        <p className="px-3 py-3 text-xs text-text-muted italic">
+          No files match &ldquo;{searchQuery}&rdquo;
+        </p>
+      );
     }
     return (
-      <div className={styles.tree}>
+      <div className="py-1">
         {results.map((file) => (
           <button
             key={file.path}
-            className={`${styles.fileRow} ${file.path === selectedPath ? styles.selected : ''}`}
-            style={{ paddingLeft: '8px' }}
+            className={`w-full flex items-center gap-1.5 px-2 py-0.5 rounded text-sm transition-colors ${file.path === selectedPath ? 'bg-navy-700 text-text-primary' : 'text-text-secondary hover:bg-navy-700 hover:text-text-primary'}`}
             onClick={() => onFileSelect(file)}
             aria-label={file.name}
-            aria-current={file.path === selectedPath ? 'true' : undefined}
+            aria-current={file.path === selectedPath ? true : undefined}
           >
-            <span className={styles.icon}>📄</span>
-            <span className={styles.name}>{file.name}</span>
+            <span className="text-text-muted flex-shrink-0" aria-hidden="true">
+              <FileText size={14} />
+            </span>
+            <span className="truncate">{file.name}</span>
           </button>
         ))}
       </div>
@@ -139,7 +169,7 @@ export function FileTree({
   }
 
   return (
-    <div className={styles.tree}>
+    <div className="py-1">
       {entries.map((entry) => (
         <FileTreeNode
           key={entry.path}

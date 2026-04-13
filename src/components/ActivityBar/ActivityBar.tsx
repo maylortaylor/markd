@@ -1,47 +1,68 @@
-import type { SidebarView } from '../../types';
+import type { ReactNode } from 'react';
 
-import styles from './ActivityBar.module.css';
+import { Files, ListTree, Search } from 'lucide-react';
+
+import type { SidebarView } from '../../types';
 
 interface ActivityBarProps {
   activeView: SidebarView;
   onViewChange: (view: SidebarView) => void;
 }
 
-const FilesIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
+interface IconButtonProps {
+  view: SidebarView;
+  activeView: SidebarView;
+  label: string;
+  icon: ReactNode;
+  onViewChange: (view: SidebarView) => void;
+}
 
-const SearchIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2"/>
-    <line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-  </svg>
-);
+function IconButton({ view, activeView, label, icon, onViewChange }: IconButtonProps) {
+  const isActive = activeView === view;
+  return (
+    <button
+      className={`relative w-10 h-10 flex items-center justify-center rounded cursor-pointer transition-colors hover:bg-navy-700 ${isActive ? 'text-text-primary' : 'text-text-muted hover:text-text-primary'}`}
+      role="tab"
+      aria-selected={isActive}
+      aria-label={label}
+      onClick={() => onViewChange(view)}
+    >
+      {isActive && (
+        <span aria-hidden="true" className="absolute left-0 top-2 bottom-2 w-0.5 bg-ocean-400 rounded-r" />
+      )}
+      {icon}
+    </button>
+  );
+}
 
 export function ActivityBar({ activeView, onViewChange }: ActivityBarProps) {
   return (
-    <div className={styles.activityBar} role="tablist" aria-label="Views">
-      <button
-        className={`${styles.iconButton} ${activeView === 'files' ? styles.active : ''}`}
-        role="tab"
-        aria-selected={activeView === 'files'}
-        aria-label="File Explorer"
-        onClick={() => onViewChange('files')}
-      >
-        <FilesIcon />
-      </button>
-      <button
-        className={`${styles.iconButton} ${activeView === 'search' ? styles.active : ''}`}
-        role="tab"
-        aria-selected={activeView === 'search'}
-        aria-label="Search"
-        onClick={() => onViewChange('search')}
-      >
-        <SearchIcon />
-      </button>
+    <div
+      className="[grid-area:activitybar] bg-navy-800 flex flex-col items-center pt-1 border-r border-navy-700"
+      role="tablist"
+      aria-label="Views"
+    >
+      <IconButton
+        view="files"
+        activeView={activeView}
+        label="File Explorer"
+        icon={<Files size={20} />}
+        onViewChange={onViewChange}
+      />
+      <IconButton
+        view="search"
+        activeView={activeView}
+        label="Search"
+        icon={<Search size={20} />}
+        onViewChange={onViewChange}
+      />
+      <IconButton
+        view="outline"
+        activeView={activeView}
+        label="Document Outline"
+        icon={<ListTree size={20} />}
+        onViewChange={onViewChange}
+      />
     </div>
   );
 }
