@@ -1,0 +1,50 @@
+{
+  "project": {
+    "name": "Markd",
+    "description": "Cross-platform markdown viewer — secure, customizable, local-only",
+    "repo": "github.com/maylortaylor/markd",
+    "license": "MIT"
+  },
+  "interaction": {
+    "mode": "collaborative",
+    "pause_on": ["decision_points", "trade_offs", "critical_blockers"]
+  },
+  "git": {
+    "strategy": "git-flow",
+    "branches": {
+      "production": "main",
+      "staging": "stage",
+      "development": "develop",
+      "feature_prefix": "feature/",
+      "fix_prefix": "fix/"
+    },
+    "commit_format": "conventional",
+    "squash_on_merge": true,
+    "force_push": false
+  },
+  "review": {
+    "depth": "standard",
+    "stages": ["spec_compliance", "code_quality"],
+    "security_audit": "on_demand",
+    "simplification_check": "on_demand"
+  },
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_pass": true,
+    "type_check": true,
+    "coverage_threshold": null
+  },
+  "models": {
+    "planning": "opus",
+    "architecture": "opus",
+    "review": "opus",
+    "building": "sonnet",
+    "research": "sonnet"
+  },
+  "ci": {
+    "provider": "github-actions",
+    "platforms": ["macos", "linux", "windows"]
+  },
+  "created": "2026-04-13",
+  "version": "1.0.0"
+}
