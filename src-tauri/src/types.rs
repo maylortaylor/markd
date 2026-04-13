@@ -15,11 +15,3 @@ pub struct FileEntry {
     pub children: Vec<FileEntry>,
 }
 
-/// Summary stats for the status bar
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FolderStats {
-    /// Total number of .md files found
-    pub file_count: usize,
-    /// The root folder path
-    pub folder_path: String,
-}
