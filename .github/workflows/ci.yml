@@ -38,6 +38,9 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Rust format check
+        run: cd src-tauri && cargo fmt --check
+
       - name: Rust lint (clippy)
         run: cd src-tauri && cargo clippy -- -D warnings
 
