@@ -1,5 +1,6 @@
 import type { FileEntry, SidebarView } from '../../types';
 
+import { FileTree } from './FileTree';
 import { SearchBar } from './SearchBar';
 
 import styles from './Sidebar.module.css';
@@ -17,8 +18,8 @@ interface SidebarProps {
 export function Sidebar({
   activeView,
   files,
-  selectedFile: _selectedFile,
-  onFileSelect: _onFileSelect,
+  selectedFile,
+  onFileSelect,
   searchQuery,
   onSearchChange,
   onOpenFolder,
@@ -36,10 +37,21 @@ export function Sidebar({
         </div>
       )}
       <div className={styles.content}>
-        {isEmpty ? (
-          <div className={styles.emptyState}>
-            {activeView === 'files' ? (
-              <>
+        {activeView === 'files' ? (
+          isEmpty ? (
+            <div className={styles.emptyState}>
+              <button
+                className={styles.openFolderButton}
+                aria-label="Open folder"
+                onClick={onOpenFolder}
+              >
+                Open Folder
+              </button>
+              <p className={styles.emptyHint}>Open a folder to get started</p>
+            </div>
+          ) : (
+            <>
+              <div className={styles.folderActions}>
                 <button
                   className={styles.openFolderButton}
                   aria-label="Open folder"
@@ -47,18 +59,28 @@ export function Sidebar({
                 >
                   Open Folder
                 </button>
-                <p className={styles.emptyHint}>
-                  Open a folder to get started
-                </p>
-              </>
-            ) : (
-              <p className={styles.emptyHint}>
-                Open a folder to search files
-              </p>
-            )}
-          </div>
+              </div>
+              <FileTree
+                entries={files}
+                selectedPath={selectedFile?.path ?? null}
+                searchQuery=""
+                onFileSelect={onFileSelect}
+              />
+            </>
+          )
         ) : (
-          <p className={styles.emptyHint}>File tree renders here (Wave 3)</p>
+          isEmpty ? (
+            <div className={styles.emptyState}>
+              <p className={styles.emptyHint}>Open a folder to search files</p>
+            </div>
+          ) : (
+            <FileTree
+              entries={files}
+              selectedPath={selectedFile?.path ?? null}
+              searchQuery={searchQuery}
+              onFileSelect={onFileSelect}
+            />
+          )
         )}
       </div>
     </div>

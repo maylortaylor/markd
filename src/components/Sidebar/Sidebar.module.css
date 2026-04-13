@@ -43,6 +43,11 @@
   margin: 0;
 }
 
+.folderActions {
+  padding: 8px 12px;
+  flex-shrink: 0;
+}
+
 .openFolderButton {
   background: transparent;
   border: 1px solid #007acc;
