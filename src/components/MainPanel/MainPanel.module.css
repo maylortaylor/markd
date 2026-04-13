@@ -1,0 +1,42 @@
+.mainPanel {
+  grid-area: main;
+  background-color: #1e1e1e;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 8px;
+}
+
+.appName {
+  font-size: 32px;
+  color: #3c3c3c;
+  font-weight: 300;
+  margin: 0;
+  letter-spacing: 0.1em;
+}
+
+.emptyHint {
+  font-size: 14px;
+  color: #5a5a5a;
+  margin: 0;
+}
+
+.scrollContainer {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 24px 32px;
+}
+
+.contentWrapper {
+  max-width: 800px;
+  margin: 0 auto;
+}

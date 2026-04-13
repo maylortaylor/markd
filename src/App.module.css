@@ -1,0 +1,13 @@
+.layout {
+  display: grid;
+  grid-template-columns: 48px 250px 1fr;
+  grid-template-rows: 1fr 24px;
+  grid-template-areas:
+    "activitybar sidebar main"
+    "statusbar statusbar statusbar";
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background-color: #1e1e1e;
+  color: #cccccc;
+}
