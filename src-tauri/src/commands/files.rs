@@ -15,9 +15,13 @@ pub fn list_files(path: String) -> Result<Vec<FileEntry>, String> {
     build_file_tree(root).map_err(|e| e.to_string())
 }
 
-/// Read the raw contents of a file and return as a string.
+/// Read the raw contents of a markdown file and return as a string.
+/// Only accepts .md files — returns an error for any other extension.
 #[tauri::command]
 pub fn read_file(path: String) -> Result<String, String> {
+    if !path.to_lowercase().ends_with(".md") {
+        return Err(format!("read_file only accepts .md files: {}", path));
+    }
     std::fs::read_to_string(&path)
         .map_err(|e| format!("Failed to read file {}: {}", path, e))
 }
@@ -29,15 +33,11 @@ fn build_file_tree(root: &Path) -> Result<Vec<FileEntry>, std::io::Error> {
         .follow_links(false)
         .into_iter()
         .filter_entry(|e| {
-            // Skip hidden directories (starting with '.')
-            if e.file_type().is_dir() {
-                e.file_name()
-                    .to_str()
-                    .map(|s| !s.starts_with('.'))
-                    .unwrap_or(false)
-            } else {
-                true
-            }
+            // Skip hidden entries (starting with '.') — both files and directories
+            e.file_name()
+                .to_str()
+                .map(|s| !s.starts_with('.'))
+                .unwrap_or(false)
         })
         .filter_map(|e| e.ok())
     {
