@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { Files, Heart, ListTree, Search } from 'lucide-react';
+import { Files, Heart, Search } from 'lucide-react';
 
 import type { SidebarView } from '../../types';
 
@@ -61,13 +61,6 @@ export function ActivityBar({ activeView, onViewChange }: ActivityBarProps) {
         activeView={activeView}
         label="Search"
         icon={<Search size={20} />}
-        onViewChange={onViewChange}
-      />
-      <IconButton
-        view="outline"
-        activeView={activeView}
-        label="Document Outline"
-        icon={<ListTree size={20} />}
         onViewChange={onViewChange}
       />
     </div>

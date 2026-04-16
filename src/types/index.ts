@@ -20,4 +20,4 @@ export interface WorkspaceInfo {
   folders: string[];
 }
 
-export type SidebarView = 'files' | 'search' | 'outline' | 'workspaces';
+export type SidebarView = 'files' | 'search' | 'workspaces';

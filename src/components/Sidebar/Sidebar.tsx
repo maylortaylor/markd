@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 
 import type { FileEntry, HeadingEntry, SidebarView, WorkspaceInfo } from '../../types';
@@ -28,9 +29,10 @@ interface SidebarProps {
 const viewLabel: Record<SidebarView, string> = {
   files: 'Explorer',
   search: 'Search',
-  outline: 'Outline',
   workspaces: 'Workspaces',
 };
+
+const MIN_PANE_HEIGHT = 60; // px — smallest either pane can get
 
 export function Sidebar({
   activeView,
@@ -50,92 +52,152 @@ export function Sidebar({
   isLoadingFiles,
 }: SidebarProps) {
   const isEmpty = files.length === 0;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [topHeight, setTopHeight] = useState(320);
+  const dragging = useRef(false);
+
+  useEffect(() => {
+    function onMouseMove(e: MouseEvent) {
+      if (!dragging.current || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const next = e.clientY - rect.top;
+      const max = rect.height - MIN_PANE_HEIGHT - 6; // 6 = divider height
+      setTopHeight(Math.max(MIN_PANE_HEIGHT, Math.min(max, next)));
+    }
+    function onMouseUp() {
+      if (dragging.current) {
+        dragging.current = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    }
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+  }, []);
+
+  function startDrag() {
+    dragging.current = true;
+    // Prevent text selection and cursor flicker while dragging
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+  }
 
   return (
-    <div className="[grid-area:sidebar] bg-navy-800 flex flex-col border-r border-navy-700 overflow-hidden">
-      <div className="px-3 py-2 text-xs font-semibold uppercase tracking-widest text-text-muted border-b border-navy-700 flex-shrink-0">
-        {viewLabel[activeView]}
-      </div>
-      {/* Scanning indicator — thin animated bar shown while folder scans are in flight */}
-      {isLoadingFiles && activeView === 'files' && (
-        <div className="h-0.5 w-full bg-navy-700 flex-shrink-0 overflow-hidden">
-          <div className="h-full bg-ocean-400 animate-[scan_1.4s_ease-in-out_infinite]" />
+    <div
+      ref={containerRef}
+      className="[grid-area:sidebar] bg-navy-800 flex flex-col border-r border-navy-700 overflow-hidden"
+    >
+      {/* ── TOP PANE: browser / search / workspaces ── */}
+      <div className="flex flex-col overflow-hidden flex-shrink-0" style={{ height: topHeight }}>
+        <div className="px-3 py-2 text-xs font-semibold uppercase tracking-widest text-text-muted border-b border-navy-700 flex-shrink-0">
+          {viewLabel[activeView]}
         </div>
-      )}
+        {isLoadingFiles && activeView === 'files' && (
+          <div className="h-0.5 w-full bg-navy-700 flex-shrink-0 overflow-hidden">
+            <div className="h-full bg-ocean-400 animate-[scan_1.4s_ease-in-out_infinite]" />
+          </div>
+        )}
 
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.div
-          key={activeView}
-          initial={{ opacity: 0, x: -8 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -8 }}
-          transition={{ duration: 0.15 }}
-          className="flex flex-col flex-1 overflow-hidden"
-        >
-          {activeView === 'workspaces' ? (
-            <WorkspacesPanel
-              favorites={favorites}
-              activeWorkspacePath={activeWorkspacePath}
-              onOpenWorkspace={onOpenWorkspace}
-              onAddWorkspace={onAddWorkspace}
-              onRemoveWorkspace={onRemoveWorkspace}
-            />
-          ) : activeView === 'outline' ? (
-            <OutlinePanel entries={outlineEntries} scrollRef={scrollRef} />
-          ) : activeView === 'search' ? (
-            <>
-              <SearchBar value={searchQuery} onChange={onSearchChange} />
-              <div className="flex-1 overflow-y-auto">
-                {isEmpty ? (
-                  <p className="px-3 py-4 text-xs text-text-muted italic">Open a folder to search files</p>
-                ) : (
-                  <FileTree
-                    entries={files}
-                    selectedPath={selectedFile?.path ?? null}
-                    searchQuery={searchQuery}
-                    onFileSelect={onFileSelect}
-                  />
-                )}
-              </div>
-            </>
-          ) : (
-            <div className="flex flex-col flex-1 overflow-hidden">
-              {isEmpty ? (
-                <div className="flex flex-col items-center justify-center flex-1 gap-3 px-4">
-                  <button
-                    className="px-4 py-1.5 text-sm bg-ocean-500 hover:bg-ocean-400 text-white rounded transition-colors"
-                    aria-label="Open folder"
-                    onClick={onOpenFolder}
-                  >
-                    Open Folder
-                  </button>
-                  <p className="text-xs text-text-muted text-center">Open a folder to get started</p>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={activeView}
+            initial={{ opacity: 0, x: -8 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -8 }}
+            transition={{ duration: 0.15 }}
+            className="flex flex-col flex-1 overflow-hidden"
+          >
+            {activeView === 'workspaces' ? (
+              <WorkspacesPanel
+                favorites={favorites}
+                activeWorkspacePath={activeWorkspacePath}
+                onOpenWorkspace={onOpenWorkspace}
+                onAddWorkspace={onAddWorkspace}
+                onRemoveWorkspace={onRemoveWorkspace}
+              />
+            ) : activeView === 'search' ? (
+              <>
+                <SearchBar value={searchQuery} onChange={onSearchChange} />
+                <div className="flex-1 overflow-y-auto">
+                  {isEmpty ? (
+                    <p className="px-3 py-4 text-xs text-text-muted italic">
+                      Open a folder to search files
+                    </p>
+                  ) : (
+                    <FileTree
+                      entries={files}
+                      selectedPath={selectedFile?.path ?? null}
+                      searchQuery={searchQuery}
+                      onFileSelect={onFileSelect}
+                    />
+                  )}
                 </div>
-              ) : (
-                <>
-                  <div className="px-3 py-2 border-b border-navy-700 flex-shrink-0">
+              </>
+            ) : (
+              /* files view */
+              <div className="flex flex-col flex-1 overflow-hidden">
+                {isEmpty ? (
+                  <div className="flex flex-col items-center justify-center flex-1 gap-3 px-4">
                     <button
-                      className="text-xs text-text-muted hover:text-text-secondary transition-colors"
+                      className="px-4 py-1.5 text-sm bg-ocean-500 hover:bg-ocean-400 text-white rounded transition-colors"
                       aria-label="Open folder"
                       onClick={onOpenFolder}
                     >
                       Open Folder
                     </button>
+                    <p className="text-xs text-text-muted text-center">
+                      Open a folder to get started
+                    </p>
                   </div>
-                  <div className="flex-1 overflow-y-auto">
-                    <FileTree
-                      entries={files}
-                      selectedPath={selectedFile?.path ?? null}
-                      searchQuery=""
-                      onFileSelect={onFileSelect}
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-        </motion.div>
-      </AnimatePresence>
+                ) : (
+                  <>
+                    <div className="px-3 py-2 border-b border-navy-700 flex-shrink-0">
+                      <button
+                        className="text-xs text-text-muted hover:text-text-secondary transition-colors"
+                        aria-label="Open folder"
+                        onClick={onOpenFolder}
+                      >
+                        Open Folder
+                      </button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto">
+                      <FileTree
+                        entries={files}
+                        selectedPath={selectedFile?.path ?? null}
+                        searchQuery=""
+                        onFileSelect={onFileSelect}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
+      {/* ── DRAG DIVIDER ── */}
+      <div
+        className="group flex-shrink-0 h-1.5 flex items-center justify-center cursor-row-resize bg-navy-700 hover:bg-ocean-500 transition-colors"
+        onMouseDown={startDrag}
+        aria-label="Resize panes"
+        role="separator"
+        aria-orientation="horizontal"
+      >
+        <div className="w-8 h-0.5 rounded-full bg-navy-600 group-hover:bg-white/30 transition-colors" />
+      </div>
+
+      {/* ── BOTTOM PANE: outline (always visible) ── */}
+      <div className="flex flex-col flex-1 overflow-hidden min-h-0">
+        <div className="px-3 py-2 text-xs font-semibold uppercase tracking-widest text-text-muted border-b border-navy-700 flex-shrink-0">
+          Outline
+        </div>
+        <OutlinePanel entries={outlineEntries} scrollRef={scrollRef} />
+      </div>
     </div>
   );
 }
