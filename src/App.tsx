@@ -15,11 +15,8 @@ function countFiles(entries: FileEntry[]): number {
   );
 }
 
-/** Wrap a folder's children under a root FileEntry node for workspace multi-root display. */
-async function loadRootEntry(folderPath: string): Promise<FileEntry> {
-  const children = await listFiles(folderPath);
-  const name = folderPath.split('/').filter(Boolean).pop() ?? folderPath;
-  return { name, path: folderPath, is_dir: true, children };
+function folderName(folderPath: string): string {
+  return folderPath.split('/').filter(Boolean).pop() ?? folderPath;
 }
 
 function App() {
@@ -72,18 +69,36 @@ function App() {
   }
 
   async function openWorkspace(info: WorkspaceInfo) {
-    try {
-      const roots = await Promise.all(info.folders.map(loadRootEntry));
-      setFiles(roots);
-      setFolderPath(info.path);
-      setActiveWorkspace(info);
-      setSelectedFile(null);
-      setMarkdownHtml(null);
-      setSearchQuery('');
-      setSidebarView('files');
-    } catch (err) {
-      console.error('Failed to open workspace:', err);
-    }
+    // Show the file browser immediately with placeholder root nodes so the
+    // UI responds instantly. Children are filled in as each scan completes.
+    const placeholders: FileEntry[] = info.folders.map((fp) => ({
+      name: folderName(fp),
+      path: fp,
+      is_dir: true,
+      children: [],
+    }));
+
+    setActiveWorkspace(info);
+    setFolderPath(info.path);
+    setFiles(placeholders);
+    setSelectedFile(null);
+    setMarkdownHtml(null);
+    setSearchQuery('');
+    setSidebarView('files');
+
+    // Scan each folder concurrently; update its slot as soon as it resolves.
+    const results = [...placeholders];
+    await Promise.all(
+      info.folders.map(async (fp, i) => {
+        try {
+          const children = await listFiles(fp);
+          results[i] = { ...results[i], children };
+          setFiles([...results]);
+        } catch (err) {
+          console.error(`Failed to scan folder ${fp}:`, err);
+        }
+      }),
+    );
   }
 
   async function addWorkspace() {
