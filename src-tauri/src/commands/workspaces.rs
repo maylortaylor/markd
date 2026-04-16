@@ -62,8 +62,10 @@ fn parse_workspace(workspace_path: &str) -> Result<WorkspaceInfo, String> {
 
     let raw = std::fs::read_to_string(file_path)
         .map_err(|e| format!("Failed to read workspace file: {e}"))?;
+    // Use json5 parser — VSCode workspace files are JSONC: they allow
+    // block/line comments, trailing commas, and the /** @format */ header.
     let workspace: WorkspaceFile =
-        serde_json::from_str(&raw).map_err(|e| format!("Failed to parse workspace JSON: {e}"))?;
+        json5::from_str(&raw).map_err(|e| format!("Failed to parse workspace JSON: {e}"))?;
 
     let workspace_dir = file_path.parent().unwrap_or(Path::new("/"));
 
