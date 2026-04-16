@@ -26,17 +26,38 @@ pub fn read_file(path: String) -> Result<String, String> {
         .map_err(|e| format!("Failed to read file {}: {}", path, e))
 }
 
+/// Directories that are never useful for markdown browsing and can be huge.
+/// Skipping them is the main reason large JS/Rust/Python projects scan fast.
+const SKIP_DIRS: &[&str] = &[
+    "node_modules",
+    "target",
+    "dist",
+    "build",
+    ".next",
+    ".nuxt",
+    "out",
+    "vendor",
+    "__pycache__",
+    ".gradle",
+    ".cargo",
+    "coverage",
+    ".nyc_output",
+];
+
+fn should_skip(name: &str) -> bool {
+    name.starts_with('.') || SKIP_DIRS.contains(&name)
+}
+
 fn build_file_tree(root: &Path) -> Result<Vec<FileEntry>, std::io::Error> {
-    // Collect all .md file paths (skipping hidden dirs and permission errors)
+    // Collect all .md file paths (skipping hidden dirs, build artifacts, and dep dirs)
     let mut md_paths: Vec<std::path::PathBuf> = Vec::new();
     for entry in WalkDir::new(root)
         .follow_links(false)
         .into_iter()
         .filter_entry(|e| {
-            // Skip hidden entries (starting with '.') — both files and directories
             e.file_name()
                 .to_str()
-                .map(|s| !s.starts_with('.'))
+                .map(|s| !should_skip(s))
                 .unwrap_or(false)
         })
         .filter_map(|e| e.ok())
