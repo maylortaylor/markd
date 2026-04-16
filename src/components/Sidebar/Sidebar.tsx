@@ -22,6 +22,7 @@ interface SidebarProps {
   onOpenWorkspace: (info: WorkspaceInfo) => void;
   onAddWorkspace: () => void;
   onRemoveWorkspace: (workspacePath: string) => void;
+  isLoadingFiles: boolean;
 }
 
 const viewLabel: Record<SidebarView, string> = {
@@ -46,6 +47,7 @@ export function Sidebar({
   onOpenWorkspace,
   onAddWorkspace,
   onRemoveWorkspace,
+  isLoadingFiles,
 }: SidebarProps) {
   const isEmpty = files.length === 0;
 
@@ -54,6 +56,12 @@ export function Sidebar({
       <div className="px-3 py-2 text-xs font-semibold uppercase tracking-widest text-text-muted border-b border-navy-700 flex-shrink-0">
         {viewLabel[activeView]}
       </div>
+      {/* Scanning indicator — thin animated bar shown while folder scans are in flight */}
+      {isLoadingFiles && activeView === 'files' && (
+        <div className="h-0.5 w-full bg-navy-700 flex-shrink-0 overflow-hidden">
+          <div className="h-full bg-ocean-400 animate-[scan_1.4s_ease-in-out_infinite]" />
+        </div>
+      )}
 
       <AnimatePresence mode="wait" initial={false}>
         <motion.div

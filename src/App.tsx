@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { open } from '@tauri-apps/plugin-dialog';
 
 import { ActivityBar } from './components/ActivityBar/ActivityBar';
@@ -28,7 +29,10 @@ function App() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [favorites, setFavorites] = useState<WorkspaceInfo[]>([]);
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceInfo | null>(null);
+  const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Session cache: avoids re-scanning the same folder until the app restarts
+  const folderCache = useRef<Map<string, FileEntry[]>>(new Map());
   const fileCount = useMemo(() => countFiles(files), [files]);
 
   const outlineEntries = useMemo<HeadingEntry[]>(() => {
@@ -69,29 +73,43 @@ function App() {
   }
 
   async function openWorkspace(info: WorkspaceInfo) {
-    // Show the file browser immediately with placeholder root nodes so the
-    // UI responds instantly. Children are filled in as each scan completes.
-    const placeholders: FileEntry[] = info.folders.map((fp) => ({
+    const cache = folderCache.current;
+
+    // Seed initial entries from cache where possible — cached folders appear
+    // fully populated immediately, uncached ones show as empty placeholders.
+    const initial: FileEntry[] = info.folders.map((fp) => ({
       name: folderName(fp),
       path: fp,
       is_dir: true,
-      children: [],
+      children: cache.get(fp) ?? [],
     }));
 
-    setActiveWorkspace(info);
-    setFolderPath(info.path);
-    setFiles(placeholders);
-    setSelectedFile(null);
-    setMarkdownHtml(null);
-    setSearchQuery('');
-    setSidebarView('files');
+    const uncached = info.folders.filter((fp) => !cache.has(fp));
 
-    // Scan each folder concurrently; update its slot as soon as it resolves.
-    const results = [...placeholders];
+    // flushSync forces React to paint this render synchronously before any
+    // async work begins — without it React batches these updates with the
+    // microtasks from Promise.all and the UI stays frozen.
+    flushSync(() => {
+      setActiveWorkspace(info);
+      setFolderPath(info.path);
+      setFiles(initial);
+      setSelectedFile(null);
+      setMarkdownHtml(null);
+      setSearchQuery('');
+      setSidebarView('files');
+      setIsLoadingFiles(uncached.length > 0);
+    });
+
+    if (uncached.length === 0) return; // everything was cached — done
+
+    // Scan uncached folders concurrently, updating each slot as it resolves
+    const results = [...initial];
     await Promise.all(
       info.folders.map(async (fp, i) => {
+        if (cache.has(fp)) return; // already populated above
         try {
           const children = await listFiles(fp);
+          cache.set(fp, children);
           results[i] = { ...results[i], children };
           setFiles([...results]);
         } catch (err) {
@@ -99,6 +117,8 @@ function App() {
         }
       }),
     );
+
+    setIsLoadingFiles(false);
   }
 
   async function addWorkspace() {
@@ -122,9 +142,12 @@ function App() {
   async function removeWorkspace(workspacePath: string) {
     try {
       await removeFavorite(workspacePath);
+      // Evict all folders that belonged to this workspace from the cache
+      const ws = favorites.find((f) => f.path === workspacePath);
+      ws?.folders.forEach((fp) => folderCache.current.delete(fp));
+
       const updated = await getFavorites();
       setFavorites(updated);
-      // If the removed workspace was active, clear the file browser
       if (activeWorkspace?.path === workspacePath) {
         setActiveWorkspace(null);
         setFolderPath(null);
@@ -172,6 +195,7 @@ function App() {
         onOpenWorkspace={(info) => { void openWorkspace(info); }}
         onAddWorkspace={() => { void addWorkspace(); }}
         onRemoveWorkspace={(path) => { void removeWorkspace(path); }}
+        isLoadingFiles={isLoadingFiles}
       />
       <MainPanel
         content={markdownHtml}
