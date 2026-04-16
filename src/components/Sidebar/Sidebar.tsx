@@ -1,10 +1,11 @@
 import { AnimatePresence, motion } from 'framer-motion';
 
-import type { FileEntry, HeadingEntry, SidebarView } from '../../types';
+import type { FileEntry, HeadingEntry, SidebarView, WorkspaceInfo } from '../../types';
 
 import { FileTree } from './FileTree';
 import { OutlinePanel } from './OutlinePanel';
 import { SearchBar } from './SearchBar';
+import { WorkspacesPanel } from './WorkspacesPanel';
 
 interface SidebarProps {
   activeView: SidebarView;
@@ -16,12 +17,18 @@ interface SidebarProps {
   onOpenFolder: () => void;
   outlineEntries: HeadingEntry[];
   scrollRef: React.RefObject<HTMLDivElement>;
+  favorites: WorkspaceInfo[];
+  activeWorkspacePath: string | null;
+  onOpenWorkspace: (info: WorkspaceInfo) => void;
+  onAddWorkspace: () => void;
+  onRemoveWorkspace: (workspacePath: string) => void;
 }
 
 const viewLabel: Record<SidebarView, string> = {
   files: 'Explorer',
   search: 'Search',
   outline: 'Outline',
+  workspaces: 'Workspaces',
 };
 
 export function Sidebar({
@@ -34,6 +41,11 @@ export function Sidebar({
   onOpenFolder,
   outlineEntries,
   scrollRef,
+  favorites,
+  activeWorkspacePath,
+  onOpenWorkspace,
+  onAddWorkspace,
+  onRemoveWorkspace,
 }: SidebarProps) {
   const isEmpty = files.length === 0;
 
@@ -52,7 +64,15 @@ export function Sidebar({
           transition={{ duration: 0.15 }}
           className="flex flex-col flex-1 overflow-hidden"
         >
-          {activeView === 'outline' ? (
+          {activeView === 'workspaces' ? (
+            <WorkspacesPanel
+              favorites={favorites}
+              activeWorkspacePath={activeWorkspacePath}
+              onOpenWorkspace={onOpenWorkspace}
+              onAddWorkspace={onAddWorkspace}
+              onRemoveWorkspace={onRemoveWorkspace}
+            />
+          ) : activeView === 'outline' ? (
             <OutlinePanel entries={outlineEntries} scrollRef={scrollRef} />
           ) : activeView === 'search' ? (
             <>

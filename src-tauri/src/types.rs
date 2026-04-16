@@ -15,3 +15,14 @@ pub struct FileEntry {
     pub children: Vec<FileEntry>,
 }
 
+/// Parsed representation of a .code-workspace file.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceInfo {
+    /// Display name derived from the filename (without extension)
+    pub name: String,
+    /// Absolute path to the .code-workspace file
+    pub path: String,
+    /// Resolved absolute paths of the folders listed in the workspace
+    pub folders: Vec<String>,
+}
+

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { Files, ListTree, Search } from 'lucide-react';
+import { Files, Heart, ListTree, Search } from 'lucide-react';
 
 import type { SidebarView } from '../../types';
 
@@ -42,6 +42,13 @@ export function ActivityBar({ activeView, onViewChange }: ActivityBarProps) {
       role="tablist"
       aria-label="Views"
     >
+      <IconButton
+        view="workspaces"
+        activeView={activeView}
+        label="Favorite Workspaces"
+        icon={<Heart size={20} />}
+        onViewChange={onViewChange}
+      />
       <IconButton
         view="files"
         activeView={activeView}

@@ -11,4 +11,13 @@ export interface HeadingEntry {
   level: number;
 }
 
-export type SidebarView = 'files' | 'search' | 'outline';
+export interface WorkspaceInfo {
+  /** Display name derived from the filename (without extension) */
+  name: string;
+  /** Absolute path to the .code-workspace file */
+  path: string;
+  /** Resolved absolute paths of the folders listed in the workspace */
+  folders: string[];
+}
+
+export type SidebarView = 'files' | 'search' | 'outline' | 'workspaces';
