@@ -41,7 +41,8 @@ Issues tracked here survive across sessions and are carried forward into future 
 - **File:** `eslint.config.js`
 - **Detail:** `eslint-plugin-react-hooks` is not installed or configured. These rules
   catch missing effect dependencies and conditional hook calls — a common source of
-  subtle React bugs.
+  subtle React bugs. The absence of this rule allowed IMPORTANT-1 (stale `drawMinimap`
+  closure) to go undetected in Phase 5.
 - **Remediation:** `npm install -D eslint-plugin-react-hooks` and add the flat config
   recommended preset to `eslint.config.js`.
 - **Status:** Open
@@ -275,3 +276,112 @@ Issues tracked here survive across sessions and are carried forward into future 
   verify the resolved path has the selected root as a prefix before reading. Requires passing
   the selected root path as a parameter or storing it in app state.
 - **Status:** Open — address in Phase 2
+
+---
+
+## PLAN-5.1 — Maritime Restyle + Document Outline + Minimap
+
+**Review date:** 2026-04-13
+
+### Important
+
+#### I-13: Minimap `useEffect` observer registration silently skipped when `scrollRef.current` is null at RAF time
+- **File:** `src/components/MainPanel/Minimap.tsx` lines 66–90
+- **Detail:** `scrollRef.current` is captured on line 72, *outside* the RAF callback. If
+  the ref is null at that moment (a real possibility on first mount), the early return
+  on line 73 exits after cancelling only the RAF — no scroll listener, ResizeObserver,
+  or MutationObserver is registered. The minimap draws once via the RAF but then stops
+  updating until the user switches files. See REVIEW-5.2 BLOCKING-1 for full analysis
+  and remediation pattern using observer refs.
+- **Status:** Open
+
+#### I-14: Minimap canvas `offsetWidth`/`offsetHeight` are `0` on first paint — minimap blank until next file load
+- **File:** `src/components/MainPanel/Minimap.tsx` lines 17–19
+- **Detail:** The early return guard `if (w === 0 || h === 0) return` correctly avoids
+  a degenerate canvas, but a single RAF is not sufficient to guarantee layout has been
+  computed in the Tauri webview on first mount. The result is a blank minimap until the
+  next `markdownHtml` change triggers a re-run of the effect.
+- **Remediation:** Observe the canvas element itself with a `ResizeObserver` that fires
+  `drawMinimap` once the canvas has a non-zero size, replacing the initial RAF draw.
+  See REVIEW-5.2 BLOCKING-2.
+- **Status:** Open
+
+#### I-15: `OutlinePanel` scrolls via global `document.getElementById` — races with MainPanel's ID-injection effect
+- **File:** `src/components/Sidebar/OutlinePanel.tsx` line 11
+- **Detail:** Heading IDs are injected by `MainPanel`'s `useEffect` (MainPanel.tsx lines
+  24–29). There is a timing window between `useMemo` computing `outlineEntries` and the
+  effect committing IDs to the DOM. Clicking a heading before the effect runs returns
+  null from `getElementById` and the click silently does nothing. Also couples OutlinePanel
+  to a sibling's DOM via global query.
+- **Remediation:** Pass `scrollRef` from App → Sidebar → OutlinePanel and query within
+  `scrollRef.current` instead of `document`. See REVIEW-5.2 BLOCKING-3.
+- **Status:** Open
+
+#### I-16: `drawMinimap` in `Minimap.tsx` recreated every render — stale closure in effect
+- **File:** `src/components/MainPanel/Minimap.tsx` lines 11–64, 90
+- **Detail:** `drawMinimap` is a plain function defined in the component body. The
+  `useEffect` closes over the version from the render in which the effect last ran, not
+  the current one. Safe today (the function only reads stable refs), but fragile under
+  future refactoring. The absence of `react-hooks/exhaustive-deps` (S-1) means this
+  won't be caught automatically.
+- **Remediation:** Wrap `drawMinimap` in `useCallback(fn, [])`. See REVIEW-5.2 IMPORTANT-1.
+- **Status:** Open
+
+#### I-17: `FileTree` passes `depth={0}` to all recursive children — indentation prop inconsistent with CSS nesting
+- **File:** `src/components/Sidebar/FileTree.tsx` line 68
+- **Detail:** All children of expanded directories are rendered with `depth={0}` regardless
+  of actual nesting depth. The `depth` prop (`8 + depth * 16`) and the CSS margin nesting
+  (`ml-3 pl-2 border-l`) both try to control indentation but are inconsistent. `depth`
+  should either be removed entirely or pass `depth + 1` to recursive children.
+- **Remediation:** Pass `depth={depth + 1}` on line 68, or remove the `depth` prop and
+  rely solely on the CSS nesting. See REVIEW-5.2 IMPORTANT-2.
+- **Status:** Open
+
+#### I-18: `flattenSearch` in `FileTree.tsx` called on every render without memoization
+- **File:** `src/components/Sidebar/FileTree.tsx` lines 137–138
+- **Detail:** Synchronous O(N) tree traversal runs on every render of `FileTree`, including
+  renders from unrelated state changes. No debounce on the search input. For large folders
+  this blocks the main thread.
+- **Remediation:** Wrap in `useMemo([entries, searchQuery])`. See REVIEW-5.2 IMPORTANT-5.
+- **Status:** Open
+
+### Suggestions
+
+#### S-13: `aria-current` uses string `'true'` instead of boolean `true`
+- **File:** `src/components/Sidebar/FileTree.tsx` lines 89, 154
+- **Detail:** `aria-current={isSelected ? 'true' : undefined}` — the string `'true'` is
+  not a valid `aria-current` enumerated token. Use the boolean `true` in JSX.
+- **Remediation:** `aria-current={isSelected ? true : undefined}`
+- **Status:** Open
+
+#### S-14: `OutlinePanel` heading buttons lack `aria-label` — screen reader reads "H2 heading text" rather than just the heading text
+- **File:** `src/components/Sidebar/OutlinePanel.tsx` lines 31–41
+- **Detail:** The `H{level}` span is not `aria-hidden` and will be read aloud. Adding an
+  explicit `aria-label` on the button provides a cleaner announcement.
+- **Remediation:** `aria-label={\`${entry.text} (H${entry.level})\`}`. See REVIEW-5.2 IMPORTANT-4.
+- **Status:** Open
+
+#### S-15: Minimap canvas has both `aria-label` and `aria-hidden="true"` — contradictory
+- **File:** `src/components/MainPanel/Minimap.tsx` lines 103–109
+- **Detail:** `aria-hidden="true"` removes the element from the accessibility tree, making
+  `aria-label` unreachable. Remove `aria-label` and keep `aria-hidden` for a decorative canvas.
+- **Status:** Open
+
+#### S-16: `_fileName` prop in `MainPanel` is accepted but unused — dead interface surface
+- **File:** `src/components/MainPanel/MainPanel.tsx` line 13
+- **Detail:** `fileName: _fileName` is in the public interface but no output is produced.
+  Callers (App.tsx) must supply it. Remove from the interface until the feature is implemented.
+- **Status:** Open
+
+#### S-17: `countFiles` called inline during App render — should be memoized
+- **File:** `src/App.tsx` line 92
+- **Detail:** `countFiles(files)` recursively traverses the file tree on every App render,
+  including renders from `sidebarView` or `searchQuery` changes that don't affect `files`.
+- **Remediation:** `const fileCount = useMemo(() => countFiles(files), [files]);`
+- **Status:** Open
+
+#### S-18: `IconButton` references `React.ReactNode` without a React import
+- **File:** `src/components/ActivityBar/ActivityBar.tsx` line 14
+- **Detail:** `icon: React.ReactNode` resolves via global `@types/react` namespace. Prefer
+  an explicit `import type { ReactNode } from 'react'` to avoid implicit global dependency.
+- **Status:** Open
