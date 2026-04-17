@@ -6,6 +6,8 @@ import { listen } from '@tauri-apps/api/event';
 import { ActivityBar } from './components/ActivityBar/ActivityBar';
 import { Breadcrumb } from './components/MainPanel/Breadcrumb';
 import { MainPanel } from './components/MainPanel/MainPanel';
+import { SettingsModal } from './components/Modals/SettingsModal';
+import { WorkspaceEditorModal } from './components/Modals/WorkspaceEditorModal';
 import { Sidebar } from './components/Sidebar/Sidebar';
 import { StatusBar } from './components/StatusBar/StatusBar';
 import {
@@ -111,6 +113,9 @@ function App() {
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceInfo | null>(null);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>(loadRecentFromStorage);
+  const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
+  const [editingWorkspace, setEditingWorkspace] = useState<WorkspaceInfo | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const folderCache = useRef<Map<string, FileEntry[]>>(new Map());
@@ -243,6 +248,56 @@ function App() {
     };
   }, [activeWorkspace?.path]);
 
+  // ── Global keyboard shortcuts ────────────────────────────────────────────────
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const meta = e.metaKey || e.ctrlKey;
+
+      // ⌘, → settings
+      if (meta && e.key === ',') {
+        e.preventDefault();
+        setShowSettings((v) => !v);
+        return;
+      }
+
+      // ⌘B → toggle sidebar
+      if (meta && e.key === 'b') {
+        e.preventDefault();
+        setSidebarVisible((v) => !v);
+        return;
+      }
+
+      // ⌘F → switch to search view and focus search bar
+      if (meta && e.key === 'f') {
+        e.preventDefault();
+        setSidebarVisible(true);
+        setSidebarView('search');
+        // Small delay so the search input is mounted before focusing
+        setTimeout(() => {
+          const input = document.querySelector<HTMLInputElement>('input[type="search"], input[placeholder*="earch"]');
+          input?.focus();
+        }, 50);
+        return;
+      }
+
+      // ⌘1 / ⌘2 / ⌘3 → switch sidebar views
+      if (meta && e.key === '1') { e.preventDefault(); setSidebarVisible(true); setSidebarView('files'); return; }
+      if (meta && e.key === '2') { e.preventDefault(); setSidebarVisible(true); setSidebarView('search'); return; }
+      if (meta && e.key === '3') { e.preventDefault(); setSidebarVisible(true); setSidebarView('workspaces'); return; }
+
+      // Escape → close open modals
+      if (e.key === 'Escape') {
+        if (showSettings) { setShowSettings(false); return; }
+        if (editingWorkspace) { setEditingWorkspace(null); return; }
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showSettings, editingWorkspace]);
+
   // ── Actions ─────────────────────────────────────────────────────────────────
 
   async function openFolder() {
@@ -365,44 +420,73 @@ function App() {
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
+  const gridTemplate = sidebarVisible
+    ? '"activitybar sidebar breadcrumb" auto "activitybar sidebar main" 1fr "activitybar sidebar statusbar" 24px / 48px 260px 1fr'
+    : '"activitybar breadcrumb" auto "activitybar main" 1fr "activitybar statusbar" 24px / 48px 1fr';
+
   return (
-    <div
-      className="h-screen w-screen grid overflow-hidden"
-      style={{
-        gridTemplate:
-          '"activitybar sidebar breadcrumb" auto "activitybar sidebar main" 1fr "activitybar sidebar statusbar" 24px / 48px 260px 1fr',
-      }}
-    >
-      <ActivityBar
-        activeView={sidebarView}
-        onViewChange={setSidebarView}
-        bottomView={bottomView}
-        onBottomViewChange={setBottomView}
-      />
-      <Sidebar
-        activeView={sidebarView}
-        files={files}
-        selectedFile={selectedFile}
-        onFileSelect={selectFile}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        onOpenFolder={() => { void openFolder(); }}
-        outlineEntries={outlineEntries}
-        scrollRef={scrollRef}
-        favorites={favorites}
-        activeWorkspacePath={activeWorkspace?.path ?? null}
-        onOpenWorkspace={(info) => { void openWorkspace(info); }}
-        onAddWorkspace={() => { void addWorkspace(); }}
-        onRemoveWorkspace={(path) => { void removeWorkspace(path); }}
-        isLoadingFiles={isLoadingFiles}
-        bottomView={bottomView}
-        recentFiles={recentFiles}
-        onOpenRecentFile={(f) => { void openRecentFile(f); }}
-      />
-      <Breadcrumb segments={breadcrumbSegments} />
-      <MainPanel content={markdownHtml} scrollRef={scrollRef} />
-      <StatusBar folderPath={folderPath} fileCount={fileCount} />
-    </div>
+    <>
+      <div
+        className="h-screen w-screen grid overflow-hidden"
+        style={{ gridTemplate }}
+      >
+        <ActivityBar
+          activeView={sidebarView}
+          onViewChange={(view) => {
+            setSidebarVisible(true);
+            setSidebarView(view);
+          }}
+          bottomView={bottomView}
+          onBottomViewChange={setBottomView}
+        />
+        {sidebarVisible && (
+          <Sidebar
+            activeView={sidebarView}
+            files={files}
+            selectedFile={selectedFile}
+            onFileSelect={selectFile}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            onOpenFolder={() => { void openFolder(); }}
+            outlineEntries={outlineEntries}
+            scrollRef={scrollRef}
+            favorites={favorites}
+            activeWorkspacePath={activeWorkspace?.path ?? null}
+            onOpenWorkspace={(info) => { void openWorkspace(info); }}
+            onAddWorkspace={() => { void addWorkspace(); }}
+            onRemoveWorkspace={(path) => { void removeWorkspace(path); }}
+            onEditWorkspace={setEditingWorkspace}
+            isLoadingFiles={isLoadingFiles}
+            bottomView={bottomView}
+            recentFiles={recentFiles}
+            onOpenRecentFile={(f) => { void openRecentFile(f); }}
+          />
+        )}
+        <Breadcrumb segments={breadcrumbSegments} />
+        <MainPanel content={markdownHtml} scrollRef={scrollRef} />
+        <StatusBar folderPath={folderPath} fileCount={fileCount} />
+      </div>
+
+      {showSettings && (
+        <SettingsModal onClose={() => setShowSettings(false)} />
+      )}
+
+      {editingWorkspace && (
+        <WorkspaceEditorModal
+          workspace={editingWorkspace}
+          onClose={() => setEditingWorkspace(null)}
+          onSaved={(updated) => {
+            setEditingWorkspace(null);
+            // Refresh favorites list so the updated folder count shows immediately
+            void getFavorites().then(setFavorites);
+            // If this is the currently open workspace, reload it
+            if (activeWorkspace?.path === updated.path) {
+              void openWorkspace(updated);
+            }
+          }}
+        />
+      )}
+    </>
   );
 }
 

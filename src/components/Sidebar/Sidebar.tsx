@@ -24,6 +24,7 @@ interface SidebarProps {
   onOpenWorkspace: (info: WorkspaceInfo) => void;
   onAddWorkspace: () => void;
   onRemoveWorkspace: (workspacePath: string) => void;
+  onEditWorkspace: (info: WorkspaceInfo) => void;
   isLoadingFiles: boolean;
   bottomView: BottomView;
   recentFiles: RecentFile[];
@@ -53,22 +54,32 @@ export function Sidebar({
   onOpenWorkspace,
   onAddWorkspace,
   onRemoveWorkspace,
+  onEditWorkspace,
   isLoadingFiles,
   bottomView,
   recentFiles,
   onOpenRecentFile,
 }: SidebarProps) {
+  const DIVIDER_H = 20; // px — tall enough to grab easily
+
   const isEmpty = files.length === 0;
   const containerRef = useRef<HTMLDivElement>(null);
-  const [topHeight, setTopHeight] = useState(320);
+  const [topHeight, setTopHeight] = useState<number | null>(null); // null = not yet measured
   const dragging = useRef(false);
+
+  // Set initial split to 75% of container height after first paint
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const h = containerRef.current.getBoundingClientRect().height;
+    setTopHeight(Math.round(h * 0.75));
+  }, []);
 
   useEffect(() => {
     function onMouseMove(e: MouseEvent) {
       if (!dragging.current || !containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
       const next = e.clientY - rect.top;
-      const max = rect.height - MIN_PANE_HEIGHT - 6; // 6 = divider height
+      const max = rect.height - MIN_PANE_HEIGHT - DIVIDER_H;
       setTopHeight(Math.max(MIN_PANE_HEIGHT, Math.min(max, next)));
     }
     function onMouseUp() {
@@ -99,7 +110,11 @@ export function Sidebar({
       className="[grid-area:sidebar] bg-navy-800 flex flex-col border-r border-navy-700 overflow-hidden"
     >
       {/* ── TOP PANE: browser / search / workspaces ── */}
-      <div className="flex flex-col overflow-hidden flex-shrink-0" style={{ height: topHeight }}>
+      {/* topHeight is null until measured; hide via flex so the bottom pane fills space */}
+      <div
+        className="flex flex-col overflow-hidden flex-shrink-0"
+        style={topHeight !== null ? { height: topHeight } : { flex: '0 0 75%' }}
+      >
         <div className="px-3 py-2 text-xs font-semibold uppercase tracking-widest text-text-muted border-b border-navy-700 flex-shrink-0">
           {viewLabel[activeView]}
         </div>
@@ -125,6 +140,7 @@ export function Sidebar({
                 onOpenWorkspace={onOpenWorkspace}
                 onAddWorkspace={onAddWorkspace}
                 onRemoveWorkspace={onRemoveWorkspace}
+                onEditWorkspace={onEditWorkspace}
               />
             ) : activeView === 'search' ? (
               <>
@@ -189,13 +205,21 @@ export function Sidebar({
 
       {/* ── DRAG DIVIDER ── */}
       <div
-        className="group flex-shrink-0 h-1.5 flex items-center justify-center cursor-row-resize bg-navy-700 hover:bg-ocean-500 transition-colors"
+        className="group flex-shrink-0 flex items-center justify-center cursor-row-resize bg-navy-750 hover:bg-navy-700 active:bg-ocean-500/20 transition-colors select-none border-y border-navy-700"
+        style={{ height: DIVIDER_H }}
         onMouseDown={startDrag}
         aria-label="Resize panes"
         role="separator"
         aria-orientation="horizontal"
       >
-        <div className="w-8 h-0.5 rounded-full bg-navy-600 group-hover:bg-white/30 transition-colors" />
+        {/* Three dots hint — visually communicates "draggable" */}
+        <div className="flex items-center gap-1">
+          <div className="w-1 h-1 rounded-full bg-navy-500 group-hover:bg-ocean-400 transition-colors" />
+          <div className="w-1 h-1 rounded-full bg-navy-500 group-hover:bg-ocean-400 transition-colors" />
+          <div className="w-1 h-1 rounded-full bg-navy-500 group-hover:bg-ocean-400 transition-colors" />
+          <div className="w-1 h-1 rounded-full bg-navy-500 group-hover:bg-ocean-400 transition-colors" />
+          <div className="w-1 h-1 rounded-full bg-navy-500 group-hover:bg-ocean-400 transition-colors" />
+        </div>
       </div>
 
       {/* ── BOTTOM PANE: outline or recent files ── */}
