@@ -96,22 +96,35 @@ function FileTreeNode({
   );
 }
 
-function flattenSearch(entries: FileEntry[], query: string): FileEntry[] {
-  const results: FileEntry[] = [];
-  const lowerQuery = query.toLowerCase();
-
-  function walk(items: FileEntry[]) {
-    for (const item of items) {
-      if (item.is_dir) {
-        walk(item.children);
-      } else if (item.name.toLowerCase().includes(lowerQuery)) {
-        results.push(item);
+/**
+ * Recursively prune the tree to only entries that match the query or are
+ * folders that contain at least one matching descendant.
+ * Returns null if nothing matches (so the caller can show an empty state).
+ */
+function filterTree(entries: FileEntry[], lowerQuery: string): FileEntry[] {
+  const result: FileEntry[] = [];
+  for (const entry of entries) {
+    if (entry.is_dir) {
+      const filteredChildren = filterTree(entry.children, lowerQuery);
+      if (filteredChildren.length > 0) {
+        result.push({ ...entry, children: filteredChildren });
       }
+    } else if (entry.name.toLowerCase().includes(lowerQuery)) {
+      result.push(entry);
     }
   }
+  return result;
+}
 
-  walk(entries);
-  return results;
+/** Collect all folder paths in a tree so we can expand them all at once. */
+function collectFolderPaths(entries: FileEntry[], out: Set<string> = new Set()): Set<string> {
+  for (const entry of entries) {
+    if (entry.is_dir) {
+      out.add(entry.path);
+      collectFolderPaths(entry.children, out);
+    }
+  }
+  return out;
 }
 
 export function FileTree({
@@ -134,35 +147,39 @@ export function FileTree({
     });
   };
 
-  const searchResults = useMemo(
-    () => (searchQuery.trim() ? flattenSearch(entries, searchQuery) : null),
-    [entries, searchQuery],
-  );
+  // When searching: prune the tree and auto-expand all surviving folders
+  const filteredEntries = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return null;
+    return filterTree(entries, q);
+  }, [entries, searchQuery]);
 
-  if (searchResults !== null) {
-    const results = searchResults;
-    if (results.length === 0) {
+  const searchExpandedPaths = useMemo(() => {
+    if (!filteredEntries) return null;
+    return collectFolderPaths(filteredEntries);
+  }, [filteredEntries]);
+
+  if (filteredEntries !== null) {
+    if (filteredEntries.length === 0) {
       return (
         <p className="px-3 py-3 text-xs text-text-muted italic">
           No files match &ldquo;{searchQuery}&rdquo;
         </p>
       );
     }
+    // Render the pruned tree with all folders force-expanded (non-interactive toggle)
     return (
       <div className="py-1">
-        {results.map((file) => (
-          <button
-            key={file.path}
-            className={`w-full flex items-center gap-1.5 px-2 py-0.5 rounded text-sm transition-colors ${file.path === selectedPath ? 'bg-navy-700 text-text-primary' : 'text-text-secondary hover:bg-navy-700 hover:text-text-primary'}`}
-            onClick={() => onFileSelect(file)}
-            aria-label={file.name}
-            aria-current={file.path === selectedPath ? true : undefined}
-          >
-            <span className="text-text-muted flex-shrink-0" aria-hidden="true">
-              <FileText size={14} />
-            </span>
-            <span className="truncate">{file.name}</span>
-          </button>
+        {filteredEntries.map((entry) => (
+          <FileTreeNode
+            key={entry.path}
+            entry={entry}
+            depth={0}
+            selectedPath={selectedPath}
+            onFileSelect={onFileSelect}
+            expandedPaths={searchExpandedPaths!}
+            onToggle={togglePath}
+          />
         ))}
       </div>
     );
