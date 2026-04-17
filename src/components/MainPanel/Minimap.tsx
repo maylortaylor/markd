@@ -56,14 +56,16 @@ export function Minimap({ scrollRef, markdownHtml }: MinimapProps) {
       ctx.fillRect(2, elTop * scale, w - 4, Math.max(elH * scale, 1));
     });
 
-    // Search highlight bars — drawn before the viewport so they show through
+    // Search highlight bars — bright yellow, drawn on top of content blocks
     const marks = scroll.querySelectorAll<HTMLElement>('mark.search-highlight');
     if (marks.length > 0) {
-      ctx.fillStyle = 'rgba(234,179,8,0.7)'; // yellow
+      ctx.fillStyle = 'rgba(234,179,8,0.85)';
       marks.forEach((mark) => {
         const rect = mark.getBoundingClientRect();
+        if (rect.width === 0 && rect.height === 0) return; // not visible yet
         const top = rect.top - scrollRect.top + scroll.scrollTop;
-        ctx.fillRect(0, top * scale, w, Math.max(rect.height * scale, 2));
+        // Draw a full-width bar at minimum 3px tall so small matches are visible
+        ctx.fillRect(0, top * scale, w, Math.max(rect.height * scale, 3));
       });
     }
 

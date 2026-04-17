@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { Clock, Files, Heart, Search } from 'lucide-react';
+import { Clock, Files, Heart, List, Search } from 'lucide-react';
 
 import type { BottomView, SidebarView } from '../../types';
 
@@ -63,12 +63,19 @@ export function ActivityBar({ activeView, onViewChange, bottomView, onBottomView
       />
 
       {/* Bottom pane controls — pinned to bottom, visually separated */}
+      {/* Bottom pane controls — pinned to bottom, visually separated */}
       <div className="mt-auto pb-1 border-t border-navy-700 pt-1 w-full flex flex-col items-center">
         <IconButton
           isActive={bottomView === 'recent'}
           label="Recent Files"
           icon={<Clock size={20} />}
-          onClick={() => onBottomViewChange(bottomView === 'recent' ? 'outline' : 'recent')}
+          onClick={() => onBottomViewChange('recent')}
+        />
+        <IconButton
+          isActive={bottomView === 'outline'}
+          label="Document Outline"
+          icon={<List size={20} />}
+          onClick={() => onBottomViewChange('outline')}
         />
       </div>
     </div>

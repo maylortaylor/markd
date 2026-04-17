@@ -3,6 +3,7 @@ import { flushSync } from 'react-dom';
 import { open } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
 
+import { injectSearchHighlights } from './lib/highlight';
 import { ActivityBar } from './components/ActivityBar/ActivityBar';
 import { Breadcrumb } from './components/MainPanel/Breadcrumb';
 import { MainPanel } from './components/MainPanel/MainPanel';
@@ -155,6 +156,15 @@ function App() {
   const breadcrumbSegments = useMemo(
     () => buildBreadcrumbs(selectedFile, activeWorkspace, folderPath),
     [selectedFile, activeWorkspace, folderPath],
+  );
+
+  // Bake search highlights into the HTML before render so there's no timing
+  // race with shiki's async code highlighting.
+  const displayHtml = useMemo(
+    () => (markdownHtml && searchQuery.trim()
+      ? injectSearchHighlights(markdownHtml, searchQuery)
+      : markdownHtml),
+    [markdownHtml, searchQuery],
   );
 
   // ── Boot ────────────────────────────────────────────────────────────────────
@@ -478,7 +488,7 @@ function App() {
           />
         )}
         <Breadcrumb segments={breadcrumbSegments} />
-        <MainPanel content={markdownHtml} searchQuery={searchQuery} scrollRef={scrollRef} />
+        <MainPanel content={displayHtml} scrollRef={scrollRef} />
         <StatusBar folderPath={folderPath} fileCount={fileCount} />
       </div>
 
