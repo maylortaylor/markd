@@ -22,6 +22,7 @@ interface SidebarProps {
   scrollRef: React.RefObject<HTMLDivElement>;
   favorites: WorkspaceInfo[];
   searchFolders: string[];
+  onMatchSelect: (file: FileEntry, lineText: string) => void;
   activeWorkspacePath: string | null;
   onOpenWorkspace: (info: WorkspaceInfo) => void;
   onAddWorkspace: () => void;
@@ -53,6 +54,7 @@ export function Sidebar({
   scrollRef,
   favorites,
   searchFolders,
+  onMatchSelect,
   activeWorkspacePath,
   onOpenWorkspace,
   onAddWorkspace,
@@ -159,6 +161,7 @@ export function Sidebar({
                       folders={searchFolders}
                       selectedPath={selectedFile?.path ?? null}
                       onFileSelect={onFileSelect}
+                      onMatchSelect={onMatchSelect}
                     />
                   )}
                 </div>

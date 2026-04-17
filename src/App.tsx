@@ -3,7 +3,6 @@ import { flushSync } from 'react-dom';
 import { open } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
 
-import { injectSearchHighlights } from './lib/highlight';
 import { ActivityBar } from './components/ActivityBar/ActivityBar';
 import { Breadcrumb } from './components/MainPanel/Breadcrumb';
 import { MainPanel } from './components/MainPanel/MainPanel';
@@ -137,9 +136,38 @@ function App() {
   // Refs so watch callbacks always see current values without re-registering
   const activeWorkspaceRef = useRef<WorkspaceInfo | null>(null);
   const filesRef = useRef<FileEntry[]>([]);
+  // When set, scroll to the mark nearest this text after the next content render
+  const pendingScrollTextRef = useRef<string | null>(null);
 
   useEffect(() => { activeWorkspaceRef.current = activeWorkspace; }, [activeWorkspace]);
   useEffect(() => { filesRef.current = files; }, [files]);
+
+  // After markdownHtml changes (new file rendered), scroll to the pending match target.
+  // We use a double-RAF so Shiki has time to finish and marks are in the DOM.
+  useEffect(() => {
+    const target = pendingScrollTextRef.current;
+    if (!target || !scrollRef.current) return;
+    pendingScrollTextRef.current = null;
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!scrollRef.current) return;
+        const marks = Array.from(
+          scrollRef.current.querySelectorAll<HTMLElement>('mark.search-highlight'),
+        );
+        if (!marks.length) return;
+
+        // Find the mark whose containing block-level text best matches the clicked line
+        const lowerTarget = target.toLowerCase().slice(0, 80);
+        const match = marks.find((m) => {
+          const block = m.closest('p,li,h1,h2,h3,h4,h5,h6,td,blockquote,div');
+          return (block?.textContent ?? '').toLowerCase().includes(lowerTarget);
+        }) ?? marks[0];
+
+        match.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    });
+  }, [markdownHtml]);
 
   const fileCount = useMemo(() => countFiles(files), [files]);
 
@@ -158,14 +186,6 @@ function App() {
     [selectedFile, activeWorkspace, folderPath],
   );
 
-  // Bake search highlights into the HTML before render so there's no timing
-  // race with shiki's async code highlighting.
-  const displayHtml = useMemo(
-    () => (markdownHtml && searchQuery.trim()
-      ? injectSearchHighlights(markdownHtml, searchQuery)
-      : markdownHtml),
-    [markdownHtml, searchQuery],
-  );
 
   // ── Boot ────────────────────────────────────────────────────────────────────
 
@@ -429,6 +449,11 @@ function App() {
     }
   }
 
+  function handleMatchSelect(file: FileEntry, lineText: string) {
+    pendingScrollTextRef.current = lineText;
+    void selectFile(file);
+  }
+
   async function openRecentFile(recent: RecentFile) {
     try {
       const raw = await readFile(recent.path);
@@ -475,6 +500,7 @@ function App() {
             outlineEntries={outlineEntries}
             scrollRef={scrollRef}
             searchFolders={activeWorkspace?.folders ?? (folderPath ? [folderPath] : [])}
+            onMatchSelect={handleMatchSelect}
             favorites={favorites}
             activeWorkspacePath={activeWorkspace?.path ?? null}
             onOpenWorkspace={(info) => { void openWorkspace(info); }}
@@ -488,7 +514,7 @@ function App() {
           />
         )}
         <Breadcrumb segments={breadcrumbSegments} />
-        <MainPanel content={displayHtml} scrollRef={scrollRef} />
+        <MainPanel content={markdownHtml} searchQuery={searchQuery} scrollRef={scrollRef} />
         <StatusBar folderPath={folderPath} fileCount={fileCount} />
       </div>
 

@@ -9,6 +9,8 @@ interface SearchResultsPanelProps {
   folders: string[];
   selectedPath: string | null;
   onFileSelect: (file: FileEntry) => void;
+  /** Called when the user clicks a specific match snippet (not the file header). */
+  onMatchSelect: (file: FileEntry, lineText: string) => void;
 }
 
 /** Wrap every occurrence of `query` in the snippet with a <mark> span. */
@@ -38,6 +40,7 @@ export function SearchResultsPanel({
   folders,
   selectedPath,
   onFileSelect,
+  onMatchSelect,
 }: SearchResultsPanelProps) {
   const [results, setResults] = useState<ContentSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -121,7 +124,7 @@ export function SearchResultsPanel({
               <button
                 key={i}
                 className="flex items-start gap-2 pl-7 pr-3 py-0.5 text-left hover:bg-navy-700/40 transition-colors group"
-                onClick={() => onFileSelect(entry)}
+                onClick={() => onMatchSelect(entry, match.text)}
                 title={match.text}
               >
                 <span className="text-[10px] text-text-muted/60 flex-shrink-0 mt-0.5 font-mono w-6 text-right">

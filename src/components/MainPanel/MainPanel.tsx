@@ -7,25 +7,96 @@ import { Minimap } from './Minimap';
 
 interface MainPanelProps {
   content: string | null;
+  searchQuery: string;
   scrollRef: React.RefObject<HTMLDivElement>;
 }
 
-export function MainPanel({ content, scrollRef }: MainPanelProps) {
-  const contentRef = useRef<HTMLDivElement>(null);
+/** Remove all injected marks and restore plain text nodes. */
+function clearMarks(container: HTMLElement) {
+  container.querySelectorAll('mark.search-highlight').forEach((mark) => {
+    const parent = mark.parentNode;
+    if (!parent) return;
+    parent.replaceChild(document.createTextNode(mark.textContent ?? ''), mark);
+    parent.normalize();
+  });
+}
 
-  useEffect(() => {
-    if (contentRef.current && content) {
-      void highlightCodeBlocks(contentRef.current);
+/** Walk text nodes (skip pre/code) and wrap matches in <mark class="search-highlight">. */
+function applyMarks(container: HTMLElement, query: string) {
+  clearMarks(container);
+  const q = query.trim();
+  if (!q) return;
+
+  const lowerQ = q.toLowerCase();
+  const qLen = q.length;
+
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      let el = node.parentElement;
+      while (el && el !== container) {
+        if (el.tagName === 'CODE' || el.tagName === 'PRE') return NodeFilter.FILTER_REJECT;
+        el = el.parentElement;
+      }
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+
+  const nodes: Text[] = [];
+  let n: Node | null;
+  while ((n = walker.nextNode())) nodes.push(n as Text);
+
+  for (const node of nodes) {
+    const text = node.textContent ?? '';
+    const lower = text.toLowerCase();
+    const indices: number[] = [];
+    let idx = lower.indexOf(lowerQ);
+    while (idx !== -1) { indices.push(idx); idx = lower.indexOf(lowerQ, idx + qLen); }
+    if (!indices.length) continue;
+
+    const frag = document.createDocumentFragment();
+    let cursor = 0;
+    for (const start of indices) {
+      if (start > cursor) frag.appendChild(document.createTextNode(text.slice(cursor, start)));
+      const mark = document.createElement('mark');
+      mark.className = 'search-highlight';
+      mark.textContent = text.slice(start, start + qLen);
+      frag.appendChild(mark);
+      cursor = start + qLen;
     }
+    if (cursor < text.length) frag.appendChild(document.createTextNode(text.slice(cursor)));
+    node.parentNode?.replaceChild(frag, node);
+  }
+}
+
+export function MainPanel({ content, searchQuery, scrollRef }: MainPanelProps) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  // Ref so async Shiki callback always reads latest query without stale closure
+  const searchQueryRef = useRef(searchQuery);
+  useEffect(() => { searchQueryRef.current = searchQuery; });
+
+  // When a new file loads: run Shiki THEN inject marks so they're never overwritten.
+  useEffect(() => {
+    if (!contentRef.current || !content) return;
+    let cancelled = false;
+    void highlightCodeBlocks(contentRef.current).then(() => {
+      if (!cancelled && contentRef.current) {
+        applyMarks(contentRef.current, searchQueryRef.current);
+      }
+    });
+    return () => { cancelled = true; };
   }, [content]);
 
-  // Inject stable heading IDs so OutlinePanel can scroll to them
+  // When only the query changes (same file): re-apply marks directly — Shiki already ran.
+  useEffect(() => {
+    if (!contentRef.current) return;
+    applyMarks(contentRef.current, searchQuery);
+  }, [searchQuery]);
+
+  // Inject stable heading IDs so OutlinePanel can scroll to them.
   useEffect(() => {
     if (!contentRef.current || !content) return;
     const headings = contentRef.current.querySelectorAll('h1,h2,h3,h4,h5,h6');
-    headings.forEach((el, i) => {
-      el.id = `heading-${i}`;
-    });
+    headings.forEach((el, i) => { el.id = `heading-${i}`; });
   }, [content]);
 
   return (
