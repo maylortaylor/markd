@@ -15,6 +15,23 @@ pub struct FileEntry {
     pub children: Vec<FileEntry>,
 }
 
+/// A single line that matched a full-text search query.
+#[derive(Debug, Clone, Serialize)]
+pub struct MatchLine {
+    /// 1-based line number within the file
+    pub line_num: u32,
+    /// The raw line text (trimmed of leading whitespace)
+    pub text: String,
+}
+
+/// A file that contains one or more full-text search matches.
+#[derive(Debug, Clone, Serialize)]
+pub struct ContentSearchResult {
+    pub path: String,
+    pub name: String,
+    pub matches: Vec<MatchLine>,
+}
+
 /// Parsed representation of a .code-workspace file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkspaceInfo {

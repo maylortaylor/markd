@@ -6,6 +6,8 @@ import { listen } from '@tauri-apps/api/event';
 import { ActivityBar } from './components/ActivityBar/ActivityBar';
 import { Breadcrumb } from './components/MainPanel/Breadcrumb';
 import { MainPanel } from './components/MainPanel/MainPanel';
+import { SettingsModal } from './components/Modals/SettingsModal';
+import { WorkspaceEditorModal } from './components/Modals/WorkspaceEditorModal';
 import { Sidebar } from './components/Sidebar/Sidebar';
 import { StatusBar } from './components/StatusBar/StatusBar';
 import {
@@ -57,11 +59,25 @@ function saveRecentToStorage(files: RecentFile[]) {
   localStorage.setItem(RECENT_KEY, JSON.stringify(files));
 }
 
-function pushRecent(file: FileEntry, workspace: WorkspaceInfo | null): RecentFile[] {
+function pushRecent(
+  file: FileEntry,
+  workspace: WorkspaceInfo | null,
+  singleFolderPath: string | null,
+): RecentFile[] {
+  // Resolve the top-level root folder that contains this file
+  let folderName: string | null = null;
+  if (workspace) {
+    const root = workspace.folders.find((f) => file.path.startsWith(f));
+    folderName = root ? (root.split('/').filter(Boolean).pop() ?? null) : null;
+  } else if (singleFolderPath) {
+    folderName = singleFolderPath.split('/').filter(Boolean).pop() ?? null;
+  }
+
   const entry: RecentFile = {
     path: file.path,
     name: file.name,
     workspaceName: workspace?.name ?? null,
+    folderName,
     openedAt: Date.now(),
   };
   const deduped = loadRecentFromStorage().filter((r) => r.path !== file.path);
@@ -111,15 +127,20 @@ function App() {
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceInfo | null>(null);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>(loadRecentFromStorage);
+  const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
+  const [editingWorkspace, setEditingWorkspace] = useState<WorkspaceInfo | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const folderCache = useRef<Map<string, FileEntry[]>>(new Map());
   // Refs so watch callbacks always see current values without re-registering
   const activeWorkspaceRef = useRef<WorkspaceInfo | null>(null);
   const filesRef = useRef<FileEntry[]>([]);
+  const [scrollToText, setScrollToText] = useState<string | null>(null);
 
   useEffect(() => { activeWorkspaceRef.current = activeWorkspace; }, [activeWorkspace]);
   useEffect(() => { filesRef.current = files; }, [files]);
+
 
   const fileCount = useMemo(() => countFiles(files), [files]);
 
@@ -137,6 +158,7 @@ function App() {
     () => buildBreadcrumbs(selectedFile, activeWorkspace, folderPath),
     [selectedFile, activeWorkspace, folderPath],
   );
+
 
   // ── Boot ────────────────────────────────────────────────────────────────────
 
@@ -243,6 +265,51 @@ function App() {
     };
   }, [activeWorkspace?.path]);
 
+  // ── Global keyboard shortcuts ────────────────────────────────────────────────
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const meta = e.metaKey || e.ctrlKey;
+
+      // ⌘, → settings
+      if (meta && e.key === ',') {
+        e.preventDefault();
+        setShowSettings((v) => !v);
+        return;
+      }
+
+      // ⌘B → toggle sidebar
+      if (meta && e.key === 'b') {
+        e.preventDefault();
+        setSidebarVisible((v) => !v);
+        return;
+      }
+
+      // ⌘F → switch to search view (SearchBar autoFocuses on mount)
+      if (meta && e.key === 'f') {
+        e.preventDefault();
+        setSidebarVisible(true);
+        setSidebarView('search');
+        return;
+      }
+
+      // ⌘1 / ⌘2 / ⌘3 → switch sidebar views
+      if (meta && e.key === '1') { e.preventDefault(); setSidebarVisible(true); setSidebarView('files'); return; }
+      if (meta && e.key === '2') { e.preventDefault(); setSidebarVisible(true); setSidebarView('search'); return; }
+      if (meta && e.key === '3') { e.preventDefault(); setSidebarVisible(true); setSidebarView('workspaces'); return; }
+
+      // Escape → close open modals
+      if (e.key === 'Escape') {
+        if (showSettings) { setShowSettings(false); return; }
+        if (editingWorkspace) { setEditingWorkspace(null); return; }
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showSettings, editingWorkspace]);
+
   // ── Actions ─────────────────────────────────────────────────────────────────
 
   async function openFolder() {
@@ -344,9 +411,20 @@ function App() {
       setSelectedFile(file);
       // SECURITY: html is Tauri/Rust-parsed output only — see MainPanel trust-chain comment
       setMarkdownHtml(html);
-      setRecentFiles(pushRecent(file, activeWorkspaceRef.current));
+      setRecentFiles(pushRecent(file, activeWorkspaceRef.current, folderPath));
     } catch (err) {
       console.error('Failed to load file:', err);
+    }
+  }
+
+  function handleMatchSelect(file: FileEntry, lineText: string) {
+    if (file.path === selectedFile?.path) {
+      // Same file already open — marks are in the DOM, scroll directly
+      setScrollToText(lineText);
+    } else {
+      // New file — set target first so MainPanel reads it after Shiki+marks finish
+      setScrollToText(lineText);
+      void selectFile(file);
     }
   }
 
@@ -357,7 +435,7 @@ function App() {
       const entry: FileEntry = { path: recent.path, name: recent.name, is_dir: false, children: [] };
       setSelectedFile(entry);
       setMarkdownHtml(html);
-      setRecentFiles(pushRecent(entry, activeWorkspaceRef.current));
+      setRecentFiles(pushRecent(entry, activeWorkspaceRef.current, folderPath));
     } catch (err) {
       console.error('Failed to open recent file:', err);
     }
@@ -365,44 +443,81 @@ function App() {
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
+  const gridTemplate = sidebarVisible
+    ? '"activitybar sidebar breadcrumb" auto "activitybar sidebar main" 1fr "activitybar sidebar statusbar" 24px / 48px 260px 1fr'
+    : '"activitybar breadcrumb" auto "activitybar main" 1fr "activitybar statusbar" 24px / 48px 1fr';
+
   return (
-    <div
-      className="h-screen w-screen grid overflow-hidden"
-      style={{
-        gridTemplate:
-          '"activitybar sidebar breadcrumb" auto "activitybar sidebar main" 1fr "activitybar sidebar statusbar" 24px / 48px 260px 1fr',
-      }}
-    >
-      <ActivityBar
-        activeView={sidebarView}
-        onViewChange={setSidebarView}
-        bottomView={bottomView}
-        onBottomViewChange={setBottomView}
-      />
-      <Sidebar
-        activeView={sidebarView}
-        files={files}
-        selectedFile={selectedFile}
-        onFileSelect={selectFile}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        onOpenFolder={() => { void openFolder(); }}
-        outlineEntries={outlineEntries}
-        scrollRef={scrollRef}
-        favorites={favorites}
-        activeWorkspacePath={activeWorkspace?.path ?? null}
-        onOpenWorkspace={(info) => { void openWorkspace(info); }}
-        onAddWorkspace={() => { void addWorkspace(); }}
-        onRemoveWorkspace={(path) => { void removeWorkspace(path); }}
-        isLoadingFiles={isLoadingFiles}
-        bottomView={bottomView}
-        recentFiles={recentFiles}
-        onOpenRecentFile={(f) => { void openRecentFile(f); }}
-      />
-      <Breadcrumb segments={breadcrumbSegments} />
-      <MainPanel content={markdownHtml} scrollRef={scrollRef} />
-      <StatusBar folderPath={folderPath} fileCount={fileCount} />
-    </div>
+    <>
+      <div
+        className="h-screen w-screen grid overflow-hidden"
+        style={{ gridTemplate }}
+      >
+        <ActivityBar
+          activeView={sidebarView}
+          onViewChange={(view) => {
+            setSidebarVisible(true);
+            setSidebarView(view);
+          }}
+          bottomView={bottomView}
+          onBottomViewChange={setBottomView}
+        />
+        {sidebarVisible && (
+          <Sidebar
+            activeView={sidebarView}
+            files={files}
+            selectedFile={selectedFile}
+            onFileSelect={selectFile}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            onOpenFolder={() => { void openFolder(); }}
+            outlineEntries={outlineEntries}
+            scrollRef={scrollRef}
+            searchFolders={activeWorkspace?.folders ?? (folderPath ? [folderPath] : [])}
+            onMatchSelect={handleMatchSelect}
+            favorites={favorites}
+            activeWorkspacePath={activeWorkspace?.path ?? null}
+            onOpenWorkspace={(info) => { void openWorkspace(info); }}
+            onAddWorkspace={() => { void addWorkspace(); }}
+            onRemoveWorkspace={(path) => { void removeWorkspace(path); }}
+            onEditWorkspace={setEditingWorkspace}
+            isLoadingFiles={isLoadingFiles}
+            bottomView={bottomView}
+            recentFiles={recentFiles}
+            onOpenRecentFile={(f) => { void openRecentFile(f); }}
+          />
+        )}
+        <Breadcrumb segments={breadcrumbSegments} />
+        <MainPanel
+          content={markdownHtml}
+          searchQuery={searchQuery}
+          scrollToText={scrollToText}
+          onScrollComplete={() => setScrollToText(null)}
+          scrollRef={scrollRef}
+        />
+        <StatusBar folderPath={folderPath} fileCount={fileCount} />
+      </div>
+
+      {showSettings && (
+        <SettingsModal onClose={() => setShowSettings(false)} />
+      )}
+
+      {editingWorkspace && (
+        <WorkspaceEditorModal
+          workspace={editingWorkspace}
+          onClose={() => setEditingWorkspace(null)}
+          onSaved={(updated) => {
+            setEditingWorkspace(null);
+            // Refresh favorites list so the updated folder count shows immediately
+            void getFavorites().then(setFavorites);
+            // If this is the currently open workspace, reload it
+            if (activeWorkspace?.path === updated.path) {
+              void openWorkspace(updated);
+            }
+          }}
+        />
+      )}
+    </>
   );
 }
 

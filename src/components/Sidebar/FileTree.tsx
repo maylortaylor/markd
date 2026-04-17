@@ -96,23 +96,85 @@ function FileTreeNode({
   );
 }
 
-function flattenSearch(entries: FileEntry[], query: string): FileEntry[] {
-  const results: FileEntry[] = [];
-  const lowerQuery = query.toLowerCase();
+// ── Compact search tree ───────────────────────────────────────────────────────
+// Separate renderer used only during search. Folders are condensed into
+// tiny muted labels so files dominate the visual hierarchy.
 
-  function walk(items: FileEntry[]) {
-    for (const item of items) {
-      if (item.is_dir) {
-        walk(item.children);
-      } else if (item.name.toLowerCase().includes(lowerQuery)) {
-        results.push(item);
-      }
-    }
+interface CompactNodeProps {
+  entry: FileEntry;
+  depth: number;
+  selectedPath: string | null;
+  onFileSelect: (file: FileEntry) => void;
+}
+
+function CompactNode({ entry, depth, selectedPath, onFileSelect }: CompactNodeProps) {
+  // 4px base + 8px per level (half the normal tree)
+  const paddingLeft = 4 + depth * 8;
+
+  if (entry.is_dir) {
+    return (
+      <div>
+        {/* Folder label — not interactive, always expanded */}
+        <div
+          className="flex items-center gap-1 py-px overflow-hidden"
+          style={{ paddingLeft: `${paddingLeft}px` }}
+          aria-label={entry.name}
+        >
+          <Folder size={11} className="flex-shrink-0 text-ocean-400/60" aria-hidden="true" />
+          <span className="text-[10px] text-text-muted truncate leading-none">{entry.name}</span>
+        </div>
+        <div>
+          {entry.children.map((child) => (
+            <CompactNode
+              key={child.path}
+              entry={child}
+              depth={depth + 1}
+              selectedPath={selectedPath}
+              onFileSelect={onFileSelect}
+            />
+          ))}
+        </div>
+      </div>
+    );
   }
 
-  walk(entries);
-  return results;
+  const isSelected = entry.path === selectedPath;
+  return (
+    <button
+      className={`w-full flex items-center gap-1.5 py-0.5 rounded text-sm transition-colors ${
+        isSelected ? 'bg-navy-700 text-text-primary' : 'text-text-secondary hover:bg-navy-700 hover:text-text-primary'
+      }`}
+      style={{ paddingLeft: `${paddingLeft + 4}px` }}
+      onClick={() => onFileSelect(entry)}
+      aria-label={entry.name}
+      aria-current={isSelected ? true : undefined}
+    >
+      <FileText size={13} className="flex-shrink-0 text-text-muted" aria-hidden="true" />
+      <span className="truncate">{entry.name}</span>
+    </button>
+  );
 }
+
+/**
+ * Recursively prune the tree to only entries that match the query or are
+ * folders that contain at least one matching descendant.
+ * Returns null if nothing matches (so the caller can show an empty state).
+ */
+function filterTree(entries: FileEntry[], lowerQuery: string): FileEntry[] {
+  const result: FileEntry[] = [];
+  for (const entry of entries) {
+    if (entry.is_dir) {
+      const filteredChildren = filterTree(entry.children, lowerQuery);
+      if (filteredChildren.length > 0) {
+        result.push({ ...entry, children: filteredChildren });
+      }
+    } else if (entry.name.toLowerCase().includes(lowerQuery)) {
+      result.push(entry);
+    }
+  }
+  return result;
+}
+
 
 export function FileTree({
   entries,
@@ -134,35 +196,32 @@ export function FileTree({
     });
   };
 
-  const searchResults = useMemo(
-    () => (searchQuery.trim() ? flattenSearch(entries, searchQuery) : null),
-    [entries, searchQuery],
-  );
+  // When searching: prune the tree and auto-expand all surviving folders
+  const filteredEntries = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return null;
+    return filterTree(entries, q);
+  }, [entries, searchQuery]);
 
-  if (searchResults !== null) {
-    const results = searchResults;
-    if (results.length === 0) {
+  if (filteredEntries !== null) {
+    if (filteredEntries.length === 0) {
       return (
         <p className="px-3 py-3 text-xs text-text-muted italic">
           No files match &ldquo;{searchQuery}&rdquo;
         </p>
       );
     }
+    // Compact view: folders are tiny muted labels, files are full-size
     return (
       <div className="py-1">
-        {results.map((file) => (
-          <button
-            key={file.path}
-            className={`w-full flex items-center gap-1.5 px-2 py-0.5 rounded text-sm transition-colors ${file.path === selectedPath ? 'bg-navy-700 text-text-primary' : 'text-text-secondary hover:bg-navy-700 hover:text-text-primary'}`}
-            onClick={() => onFileSelect(file)}
-            aria-label={file.name}
-            aria-current={file.path === selectedPath ? true : undefined}
-          >
-            <span className="text-text-muted flex-shrink-0" aria-hidden="true">
-              <FileText size={14} />
-            </span>
-            <span className="truncate">{file.name}</span>
-          </button>
+        {filteredEntries.map((entry) => (
+          <CompactNode
+            key={entry.path}
+            entry={entry}
+            depth={0}
+            selectedPath={selectedPath}
+            onFileSelect={onFileSelect}
+          />
         ))}
       </div>
     );

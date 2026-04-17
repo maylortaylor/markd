@@ -20,6 +20,17 @@ export interface WorkspaceInfo {
   folders: string[];
 }
 
+export interface MatchLine {
+  line_num: number;
+  text: string;
+}
+
+export interface ContentSearchResult {
+  path: string;
+  name: string;
+  matches: MatchLine[];
+}
+
 export type SidebarView = 'files' | 'search' | 'workspaces';
 
 export type BottomView = 'outline' | 'recent';
@@ -28,5 +39,7 @@ export interface RecentFile {
   path: string;
   name: string;
   workspaceName: string | null;
+  /** Top-level root folder name (e.g. "my-project") */
+  folderName: string | null;
   openedAt: number; // ms timestamp
 }
