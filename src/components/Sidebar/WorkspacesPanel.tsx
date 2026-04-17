@@ -1,4 +1,4 @@
-import { Folder, Heart, Plus, X } from 'lucide-react';
+import { Folder, Heart, Pencil, Plus, X } from 'lucide-react';
 
 import type { WorkspaceInfo } from '../../types';
 
@@ -8,6 +8,7 @@ interface WorkspacesPanelProps {
   onOpenWorkspace: (info: WorkspaceInfo) => void;
   onAddWorkspace: () => void;
   onRemoveWorkspace: (workspacePath: string) => void;
+  onEditWorkspace: (info: WorkspaceInfo) => void;
 }
 
 export function WorkspacesPanel({
@@ -16,6 +17,7 @@ export function WorkspacesPanel({
   onOpenWorkspace,
   onAddWorkspace,
   onRemoveWorkspace,
+  onEditWorkspace,
 }: WorkspacesPanelProps) {
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
@@ -79,16 +81,28 @@ export function WorkspacesPanel({
                     {ws.folders.length} {ws.folders.length === 1 ? 'folder' : 'folders'}
                   </p>
                 </div>
-                <button
-                  className="flex-shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 text-text-muted hover:text-text-primary transition-opacity"
-                  aria-label={`Remove ${ws.name} from favorites`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRemoveWorkspace(ws.path);
-                  }}
-                >
-                  <X size={13} />
-                </button>
+                <div className="flex-shrink-0 mt-0.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    className="text-text-muted hover:text-ocean-400 transition-colors"
+                    aria-label={`Edit ${ws.name}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEditWorkspace(ws);
+                    }}
+                  >
+                    <Pencil size={12} />
+                  </button>
+                  <button
+                    className="text-text-muted hover:text-text-primary transition-colors"
+                    aria-label={`Remove ${ws.name} from favorites`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemoveWorkspace(ws.path);
+                    }}
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
               </div>
             );
           })

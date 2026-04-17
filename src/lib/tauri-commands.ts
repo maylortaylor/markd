@@ -54,6 +54,14 @@ export async function readWorkspace(workspacePath: string): Promise<WorkspaceInf
   return invoke<WorkspaceInfo>('read_workspace', { workspacePath });
 }
 
+/**
+ * Save an updated folder list back to a .code-workspace file.
+ * Preserves other keys (settings, extensions) but strips JSONC comments.
+ */
+export async function saveWorkspace(workspacePath: string, folders: string[]): Promise<void> {
+  return invoke<void>('save_workspace', { workspacePath, folders });
+}
+
 // ── File watching ─────────────────────────────────────────────────────────────
 
 /**
