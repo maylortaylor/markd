@@ -136,38 +136,11 @@ function App() {
   // Refs so watch callbacks always see current values without re-registering
   const activeWorkspaceRef = useRef<WorkspaceInfo | null>(null);
   const filesRef = useRef<FileEntry[]>([]);
-  // When set, scroll to the mark nearest this text after the next content render
-  const pendingScrollTextRef = useRef<string | null>(null);
+  const [scrollToText, setScrollToText] = useState<string | null>(null);
 
   useEffect(() => { activeWorkspaceRef.current = activeWorkspace; }, [activeWorkspace]);
   useEffect(() => { filesRef.current = files; }, [files]);
 
-  // After markdownHtml changes (new file rendered), scroll to the pending match target.
-  // We use a double-RAF so Shiki has time to finish and marks are in the DOM.
-  useEffect(() => {
-    const target = pendingScrollTextRef.current;
-    if (!target || !scrollRef.current) return;
-    pendingScrollTextRef.current = null;
-
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (!scrollRef.current) return;
-        const marks = Array.from(
-          scrollRef.current.querySelectorAll<HTMLElement>('mark.search-highlight'),
-        );
-        if (!marks.length) return;
-
-        // Find the mark whose containing block-level text best matches the clicked line
-        const lowerTarget = target.toLowerCase().slice(0, 80);
-        const match = marks.find((m) => {
-          const block = m.closest('p,li,h1,h2,h3,h4,h5,h6,td,blockquote,div');
-          return (block?.textContent ?? '').toLowerCase().includes(lowerTarget);
-        }) ?? marks[0];
-
-        match.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      });
-    });
-  }, [markdownHtml]);
 
   const fileCount = useMemo(() => countFiles(files), [files]);
 
@@ -312,16 +285,11 @@ function App() {
         return;
       }
 
-      // ⌘F → switch to search view and focus search bar
+      // ⌘F → switch to search view (SearchBar autoFocuses on mount)
       if (meta && e.key === 'f') {
         e.preventDefault();
         setSidebarVisible(true);
         setSidebarView('search');
-        // Small delay so the search input is mounted before focusing
-        setTimeout(() => {
-          const input = document.querySelector<HTMLInputElement>('input[type="search"], input[placeholder*="earch"]');
-          input?.focus();
-        }, 50);
         return;
       }
 
@@ -450,8 +418,14 @@ function App() {
   }
 
   function handleMatchSelect(file: FileEntry, lineText: string) {
-    pendingScrollTextRef.current = lineText;
-    void selectFile(file);
+    if (file.path === selectedFile?.path) {
+      // Same file already open — marks are in the DOM, scroll directly
+      setScrollToText(lineText);
+    } else {
+      // New file — set target first so MainPanel reads it after Shiki+marks finish
+      setScrollToText(lineText);
+      void selectFile(file);
+    }
   }
 
   async function openRecentFile(recent: RecentFile) {
@@ -514,7 +488,13 @@ function App() {
           />
         )}
         <Breadcrumb segments={breadcrumbSegments} />
-        <MainPanel content={markdownHtml} searchQuery={searchQuery} scrollRef={scrollRef} />
+        <MainPanel
+          content={markdownHtml}
+          searchQuery={searchQuery}
+          scrollToText={scrollToText}
+          onScrollComplete={() => setScrollToText(null)}
+          scrollRef={scrollRef}
+        />
         <StatusBar folderPath={folderPath} fileCount={fileCount} />
       </div>
 

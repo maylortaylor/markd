@@ -149,7 +149,7 @@ export function Sidebar({
               />
             ) : activeView === 'search' ? (
               <>
-                <SearchBar value={searchQuery} onChange={onSearchChange} />
+                <SearchBar value={searchQuery} onChange={onSearchChange} autoFocus />
                 <div className="flex-1 overflow-y-auto">
                   {isEmpty ? (
                     <p className="px-3 py-4 text-xs text-text-muted italic">
