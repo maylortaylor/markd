@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 
-import type { FileEntry, WorkspaceInfo } from '../types';
+import type { ContentSearchResult, FileEntry, WorkspaceInfo } from '../types';
 
 /**
  * Scan a directory recursively for .md files and return a tree structure.
@@ -21,6 +21,17 @@ export async function readFile(path: string): Promise<string> {
  */
 export async function parseMarkdown(content: string): Promise<string> {
   return invoke<string>('parse_markdown', { content });
+}
+
+/**
+ * Full-text search across all .md files in the given folders.
+ * Returns up to 50 files, each with up to 8 matching lines.
+ */
+export async function searchContent(
+  query: string,
+  folders: string[],
+): Promise<ContentSearchResult[]> {
+  return invoke<ContentSearchResult[]>('search_content', { query, folders });
 }
 
 // ── Workspace favorites ───────────────────────────────────────────────────────

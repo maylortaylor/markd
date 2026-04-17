@@ -7,6 +7,7 @@ import { FileTree } from './FileTree';
 import { OutlinePanel } from './OutlinePanel';
 import { RecentFilesPanel } from './RecentFilesPanel';
 import { SearchBar } from './SearchBar';
+import { SearchResultsPanel } from './SearchResultsPanel';
 import { WorkspacesPanel } from './WorkspacesPanel';
 
 interface SidebarProps {
@@ -20,6 +21,7 @@ interface SidebarProps {
   outlineEntries: HeadingEntry[];
   scrollRef: React.RefObject<HTMLDivElement>;
   favorites: WorkspaceInfo[];
+  searchFolders: string[];
   activeWorkspacePath: string | null;
   onOpenWorkspace: (info: WorkspaceInfo) => void;
   onAddWorkspace: () => void;
@@ -50,6 +52,7 @@ export function Sidebar({
   outlineEntries,
   scrollRef,
   favorites,
+  searchFolders,
   activeWorkspacePath,
   onOpenWorkspace,
   onAddWorkspace,
@@ -67,11 +70,11 @@ export function Sidebar({
   const [topHeight, setTopHeight] = useState<number | null>(null); // null = not yet measured
   const dragging = useRef(false);
 
-  // Set initial split to 75% of container height after first paint
+  // Set initial split to 60% of container height after first paint
   useEffect(() => {
     if (!containerRef.current) return;
     const h = containerRef.current.getBoundingClientRect().height;
-    setTopHeight(Math.round(h * 0.75));
+    setTopHeight(Math.round(h * 0.60));
   }, []);
 
   useEffect(() => {
@@ -151,10 +154,10 @@ export function Sidebar({
                       Open a folder to search files
                     </p>
                   ) : (
-                    <FileTree
-                      entries={files}
+                    <SearchResultsPanel
+                      query={searchQuery}
+                      folders={searchFolders}
                       selectedPath={selectedFile?.path ?? null}
-                      searchQuery={searchQuery}
                       onFileSelect={onFileSelect}
                     />
                   )}

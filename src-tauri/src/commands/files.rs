@@ -28,7 +28,7 @@ pub fn read_file(path: String) -> Result<String, String> {
 
 /// Directories that are never useful for markdown browsing and can be huge.
 /// Skipping them is the main reason large JS/Rust/Python projects scan fast.
-const SKIP_DIRS: &[&str] = &[
+pub const SKIP_DIRS: &[&str] = &[
     "node_modules",
     "target",
     "dist",

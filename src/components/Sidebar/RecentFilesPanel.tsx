@@ -47,7 +47,9 @@ export function RecentFilesPanel({ files, onOpenFile }: RecentFilesPanelProps) {
                 {f.name}
               </p>
               <p className="text-xs text-text-muted truncate mt-0.5">
-                {f.workspaceName ? `${f.workspaceName} · ` : ''}{timeAgo(f.openedAt)}
+                {f.folderName ?? f.workspaceName
+                  ? `${f.folderName ?? f.workspaceName} · `
+                  : ''}{timeAgo(f.openedAt)}
               </p>
             </div>
           </button>

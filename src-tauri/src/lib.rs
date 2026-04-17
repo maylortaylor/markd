@@ -3,6 +3,7 @@ mod types;
 
 use commands::files::{list_files, read_file};
 use commands::markdown::parse_markdown;
+use commands::search::search_content;
 use commands::watcher::{stop_watching, watch_workspace_configs, watch_workspace_folders, WatcherState};
 use commands::workspaces::{add_favorite, get_favorites, read_workspace, remove_favorite, save_workspace};
 
@@ -16,6 +17,7 @@ pub fn run() {
             list_files,
             read_file,
             parse_markdown,
+            search_content,
             get_favorites,
             add_favorite,
             remove_favorite,

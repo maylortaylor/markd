@@ -59,11 +59,25 @@ function saveRecentToStorage(files: RecentFile[]) {
   localStorage.setItem(RECENT_KEY, JSON.stringify(files));
 }
 
-function pushRecent(file: FileEntry, workspace: WorkspaceInfo | null): RecentFile[] {
+function pushRecent(
+  file: FileEntry,
+  workspace: WorkspaceInfo | null,
+  singleFolderPath: string | null,
+): RecentFile[] {
+  // Resolve the top-level root folder that contains this file
+  let folderName: string | null = null;
+  if (workspace) {
+    const root = workspace.folders.find((f) => file.path.startsWith(f));
+    folderName = root ? (root.split('/').filter(Boolean).pop() ?? null) : null;
+  } else if (singleFolderPath) {
+    folderName = singleFolderPath.split('/').filter(Boolean).pop() ?? null;
+  }
+
   const entry: RecentFile = {
     path: file.path,
     name: file.name,
     workspaceName: workspace?.name ?? null,
+    folderName,
     openedAt: Date.now(),
   };
   const deduped = loadRecentFromStorage().filter((r) => r.path !== file.path);
@@ -399,7 +413,7 @@ function App() {
       setSelectedFile(file);
       // SECURITY: html is Tauri/Rust-parsed output only — see MainPanel trust-chain comment
       setMarkdownHtml(html);
-      setRecentFiles(pushRecent(file, activeWorkspaceRef.current));
+      setRecentFiles(pushRecent(file, activeWorkspaceRef.current, folderPath));
     } catch (err) {
       console.error('Failed to load file:', err);
     }
@@ -412,7 +426,7 @@ function App() {
       const entry: FileEntry = { path: recent.path, name: recent.name, is_dir: false, children: [] };
       setSelectedFile(entry);
       setMarkdownHtml(html);
-      setRecentFiles(pushRecent(entry, activeWorkspaceRef.current));
+      setRecentFiles(pushRecent(entry, activeWorkspaceRef.current, folderPath));
     } catch (err) {
       console.error('Failed to open recent file:', err);
     }
@@ -450,6 +464,7 @@ function App() {
             onOpenFolder={() => { void openFolder(); }}
             outlineEntries={outlineEntries}
             scrollRef={scrollRef}
+            searchFolders={activeWorkspace?.folders ?? (folderPath ? [folderPath] : [])}
             favorites={favorites}
             activeWorkspacePath={activeWorkspace?.path ?? null}
             onOpenWorkspace={(info) => { void openWorkspace(info); }}
@@ -463,7 +478,7 @@ function App() {
           />
         )}
         <Breadcrumb segments={breadcrumbSegments} />
-        <MainPanel content={markdownHtml} scrollRef={scrollRef} />
+        <MainPanel content={markdownHtml} searchQuery={searchQuery} scrollRef={scrollRef} />
         <StatusBar folderPath={folderPath} fileCount={fileCount} />
       </div>
 
