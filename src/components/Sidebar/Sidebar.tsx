@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 
-import type { FileEntry, HeadingEntry, SidebarView, WorkspaceInfo } from '../../types';
+import type { BottomView, FileEntry, HeadingEntry, RecentFile, SidebarView, WorkspaceInfo } from '../../types';
 
 import { FileTree } from './FileTree';
 import { OutlinePanel } from './OutlinePanel';
+import { RecentFilesPanel } from './RecentFilesPanel';
 import { SearchBar } from './SearchBar';
 import { WorkspacesPanel } from './WorkspacesPanel';
 
@@ -24,6 +25,9 @@ interface SidebarProps {
   onAddWorkspace: () => void;
   onRemoveWorkspace: (workspacePath: string) => void;
   isLoadingFiles: boolean;
+  bottomView: BottomView;
+  recentFiles: RecentFile[];
+  onOpenRecentFile: (file: RecentFile) => void;
 }
 
 const viewLabel: Record<SidebarView, string> = {
@@ -50,6 +54,9 @@ export function Sidebar({
   onAddWorkspace,
   onRemoveWorkspace,
   isLoadingFiles,
+  bottomView,
+  recentFiles,
+  onOpenRecentFile,
 }: SidebarProps) {
   const isEmpty = files.length === 0;
   const containerRef = useRef<HTMLDivElement>(null);
@@ -191,12 +198,16 @@ export function Sidebar({
         <div className="w-8 h-0.5 rounded-full bg-navy-600 group-hover:bg-white/30 transition-colors" />
       </div>
 
-      {/* ── BOTTOM PANE: outline (always visible) ── */}
+      {/* ── BOTTOM PANE: outline or recent files ── */}
       <div className="flex flex-col flex-1 overflow-hidden min-h-0">
         <div className="px-3 py-2 text-xs font-semibold uppercase tracking-widest text-text-muted border-b border-navy-700 flex-shrink-0">
-          Outline
+          {bottomView === 'recent' ? 'Recent Files' : 'Outline'}
         </div>
-        <OutlinePanel entries={outlineEntries} scrollRef={scrollRef} />
+        {bottomView === 'recent' ? (
+          <RecentFilesPanel files={recentFiles} onOpenFile={onOpenRecentFile} />
+        ) : (
+          <OutlinePanel entries={outlineEntries} scrollRef={scrollRef} />
+        )}
       </div>
     </div>
   );

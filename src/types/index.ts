@@ -21,3 +21,12 @@ export interface WorkspaceInfo {
 }
 
 export type SidebarView = 'files' | 'search' | 'workspaces';
+
+export type BottomView = 'outline' | 'recent';
+
+export interface RecentFile {
+  path: string;
+  name: string;
+  workspaceName: string | null;
+  openedAt: number; // ms timestamp
+}

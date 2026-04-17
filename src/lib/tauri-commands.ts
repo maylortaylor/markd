@@ -53,3 +53,26 @@ export async function removeFavorite(workspacePath: string): Promise<void> {
 export async function readWorkspace(workspacePath: string): Promise<WorkspaceInfo> {
   return invoke<WorkspaceInfo>('read_workspace', { workspacePath });
 }
+
+// ── File watching ─────────────────────────────────────────────────────────────
+
+/**
+ * Watch .code-workspace config files for external edits.
+ * Emits "markd://config-changed" Tauri event on any change.
+ */
+export async function watchWorkspaceConfigs(paths: string[]): Promise<void> {
+  return invoke<void>('watch_workspace_configs', { paths });
+}
+
+/**
+ * Watch open workspace root folders for .md file changes (recursive).
+ * Emits "markd://folder-changed" Tauri event with changed paths.
+ */
+export async function watchWorkspaceFolders(paths: string[]): Promise<void> {
+  return invoke<void>('watch_workspace_folders', { paths });
+}
+
+/** Stop all active watchers. */
+export async function stopWatching(): Promise<void> {
+  return invoke<void>('stop_watching');
+}
