@@ -1,7 +1,7 @@
 use std::sync::Mutex;
 
 use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, State};
 
 // ── State ─────────────────────────────────────────────────────────────────────
 

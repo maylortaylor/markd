@@ -4,7 +4,7 @@ mod types;
 use commands::files::{list_files, read_file};
 use commands::markdown::parse_markdown;
 use commands::watcher::{stop_watching, watch_workspace_configs, watch_workspace_folders, WatcherState};
-use commands::workspaces::{add_favorite, get_favorites, read_workspace, remove_favorite};
+use commands::workspaces::{add_favorite, get_favorites, read_workspace, remove_favorite, save_workspace};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -20,6 +20,7 @@ pub fn run() {
             add_favorite,
             remove_favorite,
             read_workspace,
+            save_workspace,
             watch_workspace_configs,
             watch_workspace_folders,
             stop_watching,

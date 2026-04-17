@@ -137,3 +137,62 @@ pub fn remove_favorite(app: AppHandle, workspace_path: String) -> Result<(), Str
 pub fn read_workspace(workspace_path: String) -> Result<WorkspaceInfo, String> {
     parse_workspace(&workspace_path)
 }
+
+/// Save an updated folder list back to a .code-workspace file.
+///
+/// Reads the file with json5 (to tolerate JSONC), replaces only the `folders`
+/// array, and writes back as standard JSON. Other keys (settings, extensions,
+/// etc.) are preserved. Comments and trailing commas are not preserved — this
+/// is a known limitation of the current implementation.
+///
+/// Relative folder paths are stored relative to the workspace file's directory
+/// when possible; otherwise they are stored as absolute paths.
+#[tauri::command]
+pub fn save_workspace(workspace_path: String, folders: Vec<String>) -> Result<(), String> {
+    let file_path = Path::new(&workspace_path);
+    let workspace_dir = file_path.parent().unwrap_or(Path::new("/"));
+
+    // Read the existing file and parse it as a generic JSON value so we can
+    // preserve unrelated keys (settings, extensions, etc.)
+    let existing = if file_path.exists() {
+        let raw = std::fs::read_to_string(file_path)
+            .map_err(|e| format!("Failed to read workspace file: {e}"))?;
+        json5::from_str::<serde_json::Value>(&raw)
+            .map_err(|e| format!("Failed to parse workspace file: {e}"))?
+    } else {
+        serde_json::Value::Object(serde_json::Map::new())
+    };
+
+    let mut obj = match existing {
+        serde_json::Value::Object(m) => m,
+        _ => serde_json::Map::new(),
+    };
+
+    // Convert absolute paths to relative when the folder lives under the
+    // workspace directory — keeps the file portable.
+    let folder_entries: Vec<serde_json::Value> = folders
+        .iter()
+        .map(|abs_path| {
+            let p = Path::new(abs_path);
+            let stored = if let Ok(rel) = p.strip_prefix(workspace_dir) {
+                format!("./{}", rel.to_string_lossy())
+            } else {
+                abs_path.clone()
+            };
+            serde_json::json!({ "path": stored })
+        })
+        .collect();
+
+    obj.insert(
+        "folders".to_string(),
+        serde_json::Value::Array(folder_entries),
+    );
+
+    let json = serde_json::to_string_pretty(&serde_json::Value::Object(obj))
+        .map_err(|e| format!("Failed to serialize workspace: {e}"))?;
+
+    std::fs::write(file_path, json)
+        .map_err(|e| format!("Failed to write workspace file: {e}"))?;
+
+    Ok(())
+}
