@@ -96,6 +96,65 @@ function FileTreeNode({
   );
 }
 
+// ── Compact search tree ───────────────────────────────────────────────────────
+// Separate renderer used only during search. Folders are condensed into
+// tiny muted labels so files dominate the visual hierarchy.
+
+interface CompactNodeProps {
+  entry: FileEntry;
+  depth: number;
+  selectedPath: string | null;
+  onFileSelect: (file: FileEntry) => void;
+}
+
+function CompactNode({ entry, depth, selectedPath, onFileSelect }: CompactNodeProps) {
+  // 4px base + 8px per level (half the normal tree)
+  const paddingLeft = 4 + depth * 8;
+
+  if (entry.is_dir) {
+    return (
+      <div>
+        {/* Folder label — not interactive, always expanded */}
+        <div
+          className="flex items-center gap-1 py-px overflow-hidden"
+          style={{ paddingLeft: `${paddingLeft}px` }}
+          aria-label={entry.name}
+        >
+          <Folder size={11} className="flex-shrink-0 text-ocean-400/60" aria-hidden="true" />
+          <span className="text-[10px] text-text-muted truncate leading-none">{entry.name}</span>
+        </div>
+        <div>
+          {entry.children.map((child) => (
+            <CompactNode
+              key={child.path}
+              entry={child}
+              depth={depth + 1}
+              selectedPath={selectedPath}
+              onFileSelect={onFileSelect}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const isSelected = entry.path === selectedPath;
+  return (
+    <button
+      className={`w-full flex items-center gap-1.5 py-0.5 rounded text-sm transition-colors ${
+        isSelected ? 'bg-navy-700 text-text-primary' : 'text-text-secondary hover:bg-navy-700 hover:text-text-primary'
+      }`}
+      style={{ paddingLeft: `${paddingLeft + 4}px` }}
+      onClick={() => onFileSelect(entry)}
+      aria-label={entry.name}
+      aria-current={isSelected ? true : undefined}
+    >
+      <FileText size={13} className="flex-shrink-0 text-text-muted" aria-hidden="true" />
+      <span className="truncate">{entry.name}</span>
+    </button>
+  );
+}
+
 /**
  * Recursively prune the tree to only entries that match the query or are
  * folders that contain at least one matching descendant.
@@ -116,16 +175,6 @@ function filterTree(entries: FileEntry[], lowerQuery: string): FileEntry[] {
   return result;
 }
 
-/** Collect all folder paths in a tree so we can expand them all at once. */
-function collectFolderPaths(entries: FileEntry[], out: Set<string> = new Set()): Set<string> {
-  for (const entry of entries) {
-    if (entry.is_dir) {
-      out.add(entry.path);
-      collectFolderPaths(entry.children, out);
-    }
-  }
-  return out;
-}
 
 export function FileTree({
   entries,
@@ -154,11 +203,6 @@ export function FileTree({
     return filterTree(entries, q);
   }, [entries, searchQuery]);
 
-  const searchExpandedPaths = useMemo(() => {
-    if (!filteredEntries) return null;
-    return collectFolderPaths(filteredEntries);
-  }, [filteredEntries]);
-
   if (filteredEntries !== null) {
     if (filteredEntries.length === 0) {
       return (
@@ -167,18 +211,16 @@ export function FileTree({
         </p>
       );
     }
-    // Render the pruned tree with all folders force-expanded (non-interactive toggle)
+    // Compact view: folders are tiny muted labels, files are full-size
     return (
       <div className="py-1">
         {filteredEntries.map((entry) => (
-          <FileTreeNode
+          <CompactNode
             key={entry.path}
             entry={entry}
             depth={0}
             selectedPath={selectedPath}
             onFileSelect={onFileSelect}
-            expandedPaths={searchExpandedPaths!}
-            onToggle={togglePath}
           />
         ))}
       </div>
