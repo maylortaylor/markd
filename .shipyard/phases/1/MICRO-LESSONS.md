@@ -1,7 +1,0 @@
-- [PLAN-1.1] vitest exits code 1 with no test files by default — always add `passWithNoTests: true` to vitest config from the start, before any test files exist
-- [PLAN-1.1] Tauri capabilities `fs:allow-*` scope only restricts the JS plugin API, not Rust `std::fs` — but set `$HOME/**` anyway for correctness when JS API may be used
-- [PLAN-2.1] Filter hidden files AND hidden dirs in walkdir filter_entry — the else branch returning `true` let dotfiles through
-- [PLAN-2.1] Add an .md extension guard to read_file at the Rust level, not just trusting Tauri capabilities for defense-in-depth
-- [PLAN-2.2] SearchBar used inline style mutation for focus — always use CSS Modules :focus rules instead; inline style mutation is untestable in RTL
-- [PLAN-4.1] Install `rustfmt` component in CI but also invoke it — installed-but-unused tools get flagged in review; the step and the component must both be present
-- [PLAN-4.1] Use `npm run tauri dev` not `cargo tauri dev` in READMEs — the npm script uses the local @tauri-apps/cli devDependency; cargo requires a separate global install
